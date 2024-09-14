@@ -1,0 +1,17 @@
+Inicio main
+{
+	proc privado void Main (){
+		var num ent = 1;
+  		var num1 flot = 2.5;
+  		var num2 flot = 3;
+  		leer (variable);
+  		escribir("hola mundo" + num + "el resultado:");
+	}
+
+	func publico ent sumar(ent num1, ent num2){
+		var sumar ent;
+		sumar = num1 mas num2;
+		return sumar;
+	}
+
+}FIN

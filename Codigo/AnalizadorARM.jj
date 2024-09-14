@@ -1,0 +1,567 @@
+options {
+    IGNORE_CASE = true;
+    STATIC = false;
+    BUILD_PARSER = true;
+    ERROR_REPORTING = true;
+    LOOKAHEAD = 1;
+}
+
+PARSER_BEGIN(AnalizadorARM)
+import java.io.*;
+import java.util.ArrayList;
+
+public class AnalizadorARM {
+    //Array que guarda los Errores encontrados en el codigo que se ejecuta
+    static ArrayList<String> tabla = AnalizadorARMTokenManager.tablaErrores;
+
+    public static void main(String[] args) {
+        try {
+            // Guarda el primer archivo mandado
+            String nombreArchivo = args[0];
+            //Genera un FileReader para leer el archivo y da el archivo como parametro
+            FileReader lector = new FileReader(nombreArchivo);
+            //Crea una instancia de AnalizadorARM, pasando el lector del archivo como argumento.
+            AnalizadorARM parser = new AnalizadorARM(lector);
+
+            //Llama al método parse para comenzar el análisis léxico y sintáctico del archivo.
+            parser.parse(nombreArchivo);
+
+            //Si se encuentras algun objeto en la lista tabla es que hay un error sintatico asi que se imprime el error
+            if (tabla.size() != 0) {
+                System.out.println("\n ==================================================================================== \n");
+                System.out.println("\n** Se encontraron errores sintácticos en el código **\n");
+                for (String error : tabla) {
+                    System.out.println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ \n");
+                    System.out.println(error);
+                }
+            } else { //Si no hay ningun error se meciona y se sigue
+                System.out.println("\n ==================================================================================== \n");
+                System.out.println("\t ** NO se encontraron errores sintácticos en el código ** ");
+            }
+        } catch (FileNotFoundException fe) {
+            System.out.println(fe.getMessage());
+        } catch (IOException io) {
+            System.out.println(io.getMessage());
+        }
+    }
+
+    //Aqui se lee los tokems y se pasan por el analizis sintatico y lexico
+    public void parse(String nombreArchivo) throws IOException {
+        Token token; //Se genera una variable tipo Token para guardar las variables del texto
+        int columna = 1; // Contador de columna
+        FileReader lector = new FileReader(nombreArchivo); //Se genera otro Redactor para leer el archivo
+        //Genera tokems desde el archivo de entrada
+        AnalizadorARMTokenManager lexicManager = new AnalizadorARMTokenManager(new SimpleCharStream(lector));
+
+        //Variables para saber si hay errores y saber si se analizo todo el archivo
+        boolean seEncontraronErrores = false;
+        boolean seVerificaronTokens = false;
+
+        // Analiza los tokens léxicos hasta el final del archivo
+        while ((token = lexicManager.getNextToken()).kind != AnalizadorARMConstants.EOF) {
+            seVerificaronTokens = true;
+            if (token.specialToken != null) { //Detecta si el tokem es especial y ajusta el contador de columna
+                String specialTokenImage = token.specialToken.image;
+                for (int i = 0; i < specialTokenImage.length(); i++) {
+                    if (specialTokenImage.charAt(i) == '\n') {
+                        columna = 1; // Reiniciar el contador de columna en cada salto de línea
+                    }
+                }
+            }
+            if (token.kind == AnalizadorARMConstants.ERROR) { //Si se encuentra un error se comunica
+                if (!seEncontraronErrores) {
+                    System.out.print("\t ** Se encontraron errores léxicos en el código ** \n");
+                    seEncontraronErrores = true;
+                } //Se muestra el tokem y la linea y columna
+                System.out.print("Error léxico en línea " + (token.beginLine) + ", columna " + columna + "\n");
+                System.out.print("Carácter inválido: " + (char) token.image.charAt(0) + "\n");
+            } else {
+                columna += token.image.length(); // Incrementar el contador de columna por la longitud del token
+            }
+        }
+        //Si no se encontraron se comunica
+        if (!seEncontraronErrores && seVerificaronTokens) {
+            System.out.print("\t ** NO se encontraron errores léxicos en el código ** \n");
+        }
+
+        // Ahora intenta analizar la gramática
+        try {
+            principal();  // Aquí comienza el análisis de la gramática
+        } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+    }
+
+    //Traduce el mensaje de error
+    String manejarErrorSintactico(ParseException e) {
+        // Traduce el mensaje de error de inglés a español
+        String mensajeOriginal = e.getMessage();
+        String mensajeTraducido = mensajeOriginal
+            .replace("Encountered", "Encontrado")
+            .replace("at line", "en la línea")
+            .replace("column", "columna")
+            .replace("Was expecting:", "Se esperaba:")
+            .replace("Was expecting one of:", "Se espera una de estas opciones:");
+
+        // Retorna el mensaje de error traducido
+        return "Error sintáctico: " + mensajeTraducido + "\n" + "Token actual: " + e.currentToken + "\n";
+
+    }
+}
+PARSER_END(AnalizadorARM)
+
+SKIP:
+{
+   " "
+   |"\t"
+   |"\r"
+}
+
+SPECIAL_TOKEN:
+{
+   "\n"
+}
+
+TOKEN: //Variables
+{
+    <ENT: "ent">
+    | <FLOT: "flot">
+    | <BOOL: "bool">
+    | <CAD: "cad">
+    | <VAR: "var">
+}
+
+TOKEN: //Operadores Logicos-Aritmeticos
+{
+    <MAS: "mas">
+    | <MENOS: "menos">
+    | <MULT: "mult">
+    | <DIV: "div">
+    | <RES: "res">
+    | <INC: "inc">
+    | <DEC: "dec">
+    | <AND: "AND">
+    | <OR: "OR">
+    | <NOT: "NOT">
+}
+
+TOKEN: //Comparadores
+{
+    <IGUALDAD: "==">
+    | <IGUAL: "=">
+    | <DESIGUALDAD: "!=">
+    | <MAYOR: ">">
+    | <MENOR: "<">
+    | <MAYORIGUAL: ">=">
+    | <MENORIGUAL: "<=">
+}
+
+TOKEN: //DIGITOS
+{
+    <ENTEROS: (["0"-"9"])+>
+    | <NUMERODECIMAL: (["0"-"9"])*("."["0"-"9"])+>
+}
+
+TOKEN: //CICLOS
+{
+    <FOR: "for">
+    | <WHILE: "while">
+}
+
+TOKEN: //ARREGLOS
+{
+    <MATRIZ: "matrix">
+    | <VECTOR: "vec">
+}
+
+TOKEN: //CONDICIONALES
+{
+    <SI: "SI">
+    | <SINO: "SINO">
+}
+
+TOKEN: //LECTURA
+{
+    <LEER: "leer">
+}
+
+TOKEN: //ESCRITURA
+{
+    <ESCRIBIR: "escribir">
+}
+
+TOKEN: //SIMBOLOS DE DELIMITACION
+{
+    <PUNTO: ".">
+    | <DELIMITADOR: ";">
+    | <COMA: ",">
+    | <CORCHIZQ: "[">
+    | <CORCHDER: "]">
+    | <LLAVEIZQ: "{">
+    | <LLAVEDER: "}">
+    | <PARENIZQ: "(">
+    | <PARENDER: ")">
+    | <CONCATENAR: "+">
+}
+
+TOKEN: //Palabras Reservadas
+{
+    <VOID: "void">
+    | <PUBLICO: "publico">
+    | <PRIVADO: "privado">
+    | <ESTATICO: "estatico">
+    | <RETURN: "return">
+}
+
+TOKEN:
+{
+    <MATH: "Math">
+    | <ARRAYCLASS: "Array">
+    | <RANDOMCLASS: "Random">
+    | <TIMERCLASS: "Timer">
+}
+
+TOKEN: //FUNCIONES DE CLASES
+{
+    <RAMDONFUNC: (<RANDOMCLASS>)"."("next"|"equals")>
+    | <ARRAYFUNC: (<ARRAYCLASS>)"."("clear"|"clone"|"copy"|"reverse")>
+    | <TIMERFUNC: (<TIMERCLASS>)"."("start"|"stop")>
+    | <MATHFUNC: (<MATH>)"."("abs"|"acos"|"acosh"|"tan"|"cos"|"sen"|"random"|"sqrt")>
+    | <INICIO: "Inicio">
+    | <FIN: "Fin">
+    | <MAIN: "Main()">
+    | <PROC: "proc">
+    | <FUNC: "func">
+}
+
+TOKEN: // IDENTIFICADOR
+{
+    <IDENTIFICADOR: ["a"-"z", "A"-"Z"](["a"-"z", "A"-"Z", "0"-"9", "_"])*>
+}
+
+TOKEN: //Reconocimiento de valores
+{
+    <VCAD: "\""(["a"-"z"]|["A"-"Z"]|["0"-"9"]|[","]|["."]|[" "]|[":"]|["="])+"\"">
+}
+
+TOKEN: // Manejo de Errores
+{
+    <ERROR: ~[]>
+}
+
+TOKEN_MGR_DECLS : {
+    static ArrayList<String> tablaErrores = new ArrayList<String>();
+}
+
+void principal() :{} 
+{
+    try {
+        <INICIO> <IDENTIFICADOR> <LLAVEIZQ>
+        (
+            Codigo()
+        )+
+        <LLAVEDER> <FIN>
+    } catch (ParseException e) {
+        tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+    }
+}
+
+void Codigo() : {}
+{
+        declararVariable()
+        | gramaticaEscribir()
+        | gramaticaLeer()
+        | gramaticaSi()
+        | gramaticaWhile()
+        | gramaticaAsignacion()
+        | gramaticaOperadorLogico()
+        | gramaticaFor()
+        | inicializarArregloEntero()
+        | inicializarArregloCadena()
+        | SentenciasProcedimientos()
+        | SentenciasFunciones()
+}
+
+void declararVariable() : {}
+{
+    try {
+        <VAR> <IDENTIFICADOR> 
+        tipoDato()
+        [<IGUAL> 
+        valor()
+        ] <DELIMITADOR>
+    } catch (ParseException e) {
+        tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+    }
+}
+
+void tipoDato() : {}
+{
+    <ENT>
+    | <FLOT>
+    | <BOOL>
+    | <CAD>
+}
+
+void valor() : {}
+{
+    <ENTEROS> | <VCAD> | <NUMERODECIMAL> | <IDENTIFICADOR>
+}
+
+void gramaticaEscribir() : {}
+{
+    try {
+        <ESCRIBIR> <PARENIZQ>
+            ( 
+                (<VCAD> | <IDENTIFICADOR>)
+                (<CONCATENAR> (<VCAD> | <IDENTIFICADOR>))* 
+            )+
+         <PARENDER> <DELIMITADOR>
+    } catch (ParseException e) {
+        tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+    }
+}
+
+void gramaticaLeer() : {}
+{
+    try {
+        <LEER> <PARENIZQ>
+        (
+            <IDENTIFICADOR>
+        ) <PARENDER> <DELIMITADOR>
+    } catch (ParseException e) {
+        tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+    }
+}
+
+void gramaticaSi() : {}
+{
+    try {
+            <SI> <PARENIZQ> 
+            (condicion())+
+            <PARENDER> <LLAVEIZQ> (Codigo())+ <LLAVEDER>
+            ( gramaticaSiNo() )*
+        } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void gramaticaSiNo() : {}
+{
+    try {
+            <SINO> <LLAVEIZQ> (Codigo())+ <LLAVEDER>
+        } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void condicion() : {}
+{
+    try {
+    valor() OperadoresComparadores() valor() (condicionLogicos())*
+    } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void condicionLogicos() : {}
+{
+    try {
+    OperadoresLogicos() valor() OperadoresComparadores() valor()
+    } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void OperadoresLogicos() : {}
+{
+     <AND> | <OR> | <NOT>
+}
+
+void OperadoresComparadores() : {}
+{
+    <IGUALDAD> | <DESIGUALDAD> | <MAYOR> | <MENOR> | <MAYORIGUAL> | <MENORIGUAL>
+}
+
+void gramaticaWhile() : {}
+{
+    try{
+        <WHILE> <PARENIZQ> 
+        condicion() 
+        <PARENDER> <LLAVEIZQ> (Codigo())+ <LLAVEDER> 
+    } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void gramaticaAsignacion(): { }
+{
+    try{
+	        < IDENTIFICADOR > < IGUAL > operacionSimple() <DELIMITADOR>
+        } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void operacionSimple(): { }
+{
+    try{
+            (  valor() | operacionParentesis())
+            ( operadorAritmetico() (valor() | operacionParentesis()) )*
+        } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void operacionParentesis(): { }
+{
+    try{
+	        < PARENIZQ > operacionSimple() < PARENDER >
+        } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void operadorAritmetico(): {}
+{
+	< MAS > | < MENOS > | < MULT > | < DIV > | < RES >
+}
+
+void gramaticaOperadorLogico(): {}
+{
+    try{
+        < BOOL > <IDENTIFICADOR> 
+        <IGUAL> 
+            condicionLogico()
+        <DELIMITADOR>
+                } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void condicionLogico(): {}
+{
+    try{
+        valor() OperadoresLogicos() valor()
+                } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void gramaticaFor(): {}
+{
+    try{
+        <FOR>  <PARENIZQ>
+            (condicionFor())
+        <PARENDER> <LLAVEIZQ> (Codigo())+ <LLAVEDER> 
+                } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void condicionFor(): {}
+{
+    try{
+            (tipoDato()) (comparacionForIgual()) <DELIMITADOR> 
+            (comparacionFor()) <DELIMITADOR> operadorIncDec() <IDENTIFICADOR>
+                } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void comparacionFor(): {}
+{
+    try{
+            <IDENTIFICADOR> OperadoresComparadores() valor()
+                } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void comparacionForIgual(): {}
+{
+    try{
+            <IDENTIFICADOR> <IGUAL> <ENTEROS>
+                } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void operadorIncDec(): {}
+{
+	< INC > | < DEC > 
+}
+
+void inicializarArregloEntero() : {}
+{
+    try{
+        <ENT> <IDENTIFICADOR> <CORCHIZQ> <ENTEROS> <CORCHDER> 
+        <IGUAL> <LLAVEIZQ> <ENTEROS> (<COMA> <ENTEROS>)* <LLAVEDER> <DELIMITADOR>
+    } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void inicializarArregloCadena() : {}
+{
+    try{
+        <CAD> <IDENTIFICADOR> <CORCHIZQ> <ENTEROS> <CORCHDER> 
+        <IGUAL> <LLAVEIZQ> <VCAD> (<COMA> <VCAD>)*  <LLAVEDER> <DELIMITADOR>
+    } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void SentenciasProcedimientos() : {}
+{
+    try{
+        <PROC> PalabrasReservadas() <VOID> <IDENTIFICADOR> <PARENIZQ> <PARENDER>
+        <LLAVEIZQ>
+        (
+            Codigo()
+        )+
+        <LLAVEDER>
+    } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void SentenciasFunciones() : {}
+{
+    try{
+        <FUNC> PalabrasReservadas() tipoDato() <IDENTIFICADOR> <PARENIZQ> [parametros()] <PARENDER>
+        <LLAVEIZQ>
+        (
+           Codigo()
+        )*
+        returnStatement()
+        <LLAVEDER>
+    } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void returnStatement() : {}
+{
+    try{
+        <RETURN> valor() <DELIMITADOR>
+    } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void parametros() : {}
+{
+    try{
+        tipoDato() <IDENTIFICADOR> ( <COMA> tipoDato() <IDENTIFICADOR> )*
+    } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+void PalabrasReservadas() : {}
+{
+    <PUBLICO>
+    | <PRIVADO>
+    | <ESTATICO>
+}
