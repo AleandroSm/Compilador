@@ -13,6 +13,7 @@ import java.util.ArrayList;
 public class AnalizadorARM {
     //Array que guarda los Errores encontrados en el codigo que se ejecuta
     static ArrayList<String> tabla = AnalizadorARMTokenManager.tablaErrores;
+    private SymbolTable tablaSimbolos = new SymbolTable();
 
     public static void main(String[] args) {
         try {
@@ -282,25 +283,60 @@ void Codigo() : {}
         | SentenciasFunciones()
 }
 
-void declararVariable() : {}
+void declararVariable() : {Token t,t1;}
 {
     try {
-        <VAR> <IDENTIFICADOR> 
-        tipoDato()
+        <VAR> t =  <IDENTIFICADOR>
+        t1 = tipoDato()
+        {
+            if(tablaSimbolos.contains(t.image)) tabla.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbol(t.image, new Symbol(t.image,t1.image));
+        }
         [<IGUAL> 
-        valor()
+        valor2(t1.image)
         ] <DELIMITADOR>
+
     } catch (ParseException e) {
         tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     }
 }
 
-void tipoDato() : {}
+Token tipoDato() : {Token t = null;}
 {
-    <ENT>
-    | <FLOT>
-    | <BOOL>
-    | <CAD>
+    (t = <ENT>
+    | t = <FLOT>
+    | t = <BOOL>
+    | t = <CAD>
+    )
+    {
+        return t;
+    }
+}
+
+void valor2(String tipoEsperado) : {Token t;}
+{
+    t = <ENTEROS> {
+        if (!tipoEsperado.equals("ent")) {
+            tabla.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró un entero");
+        }
+    }
+    | t = <VCAD> {
+        if (!tipoEsperado.equals("cad")) {
+            tabla.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró una cadena");
+        }
+    }
+    | t = <NUMERODECIMAL> {
+        if (!tipoEsperado.equals("flot")) {
+            tabla.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró un número decimal");
+        }
+    }
+    | t = <IDENTIFICADOR> {
+        if (!tablaSimbolos.contains(t.image)) {
+            tabla.add("Error semántico: La variable " + t.image + " no ha sido declarada");
+        } else if (!tablaSimbolos.checkType(t.image, tipoEsperado)) {
+            tabla.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró " + tablaSimbolos.getType(t.image));
+        }
+    }
 }
 
 void valor() : {}
@@ -394,29 +430,37 @@ void gramaticaWhile() : {}
         }
 }
 
-void gramaticaAsignacion(): { }
+void gramaticaAsignacion(): {Token t;}
 {
     try{
-	        < IDENTIFICADOR > < IGUAL > operacionSimple() <DELIMITADOR>
+	        t = < IDENTIFICADOR >
+	        < IGUAL >
+	        operacionSimple(tablaSimbolos.getType(t.image))
+	            {
+	                if(!tablaSimbolos.contains(t.image)){
+                    tabla.add("Error semántico: La variable " + t.image + " no ha sido declarada");
+                }
+	        }
+	        <DELIMITADOR>
         } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
 }
 
-void operacionSimple(): { }
+void operacionSimple(String type): { }
 {
     try{
-            (  valor() | operacionParentesis())
-            ( operadorAritmetico() (valor() | operacionParentesis()) )*
+            (  valor2(type) | operacionParentesis(type))
+            ( operadorAritmetico() (valor2(type) | operacionParentesis(type)) )*
         } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
 }
 
-void operacionParentesis(): { }
+void operacionParentesis(String type): { }
 {
     try{
-	        < PARENIZQ > operacionSimple() < PARENDER >
+	        < PARENIZQ > operacionSimple(type) < PARENDER >
         } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
