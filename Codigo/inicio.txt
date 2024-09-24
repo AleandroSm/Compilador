@@ -1,8 +1,7 @@
 Inicio main
 {
-  var num ent = 1;
-  var num1 flot = 2.5;
-  var num2 flot = 3;
-  leer (variable);
-  escribir("hola mundo" + num + "el resultado:");
+  while(num < 5){
+    var num ent = 0;
+  }
+  var num ent = 10;
 }Fin
