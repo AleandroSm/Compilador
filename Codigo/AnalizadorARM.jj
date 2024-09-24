@@ -258,11 +258,13 @@ TOKEN_MGR_DECLS : {
 void principal() :{} 
 {
     try {
+        {tablaSimbolos.enterScope();}
         <INICIO> <IDENTIFICADOR> <LLAVEIZQ>
         (
             Codigo()
         )+
         <LLAVEDER> <FIN>
+        {tablaSimbolos.exitScope();}
     } catch (ParseException e) {
         tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     }
@@ -291,7 +293,7 @@ void declararVariable() : {Token t,t1;}
         t1 = tipoDato()
         {
             if(tablaSimbolos.contains(t.image)) tabla.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
-            else tablaSimbolos.addSymbol(t.image, new Symbol(t.image,t1.image));
+            else tablaSimbolos.addSymbol(t.image, t1.image);
         }
         [<IGUAL> 
         valor2(t1.image)
@@ -317,22 +319,22 @@ Token tipoDato() : {Token t = null;}
 void valor2(String tipoEsperado) : {Token t;}
 {
     t = <ENTEROS> {
-        if (!tipoEsperado.equals("ent")) {
+        if (!tipoEsperado.equals("ent") && !tipoEsperado.isEmpty()) {
             tabla.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró un entero");
         }
     }
     | t = <VCAD> {
-        if (!tipoEsperado.equals("cad")) {
+        if (!tipoEsperado.equals("cad") && !tipoEsperado.isEmpty()) {
             tabla.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró una cadena");
         }
     }
     | t = <NUMERODECIMAL> {
-        if (!tipoEsperado.equals("flot")) {
+        if (!tipoEsperado.equals("flot") && !tipoEsperado.isEmpty()) {
             tabla.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró un número decimal");
         }
     }
     | t = <IDENTIFICADOR> {
-        if (!tablaSimbolos.contains(t.image)) {
+        if (!tablaSimbolos.contains(t.image) && !tipoEsperado.isEmpty()) {
             tabla.add("Error semántico: La variable " + t.image + " no ha sido declarada");
         } else if (!tablaSimbolos.checkType(t.image, tipoEsperado)) {
             tabla.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró " + tablaSimbolos.getType(t.image));
@@ -374,10 +376,12 @@ void gramaticaLeer() : {}
 void gramaticaSi() : {}
 {
     try {
+        {tablaSimbolos.enterScope();}
             <SI> <PARENIZQ> 
             (condicion())+
             <PARENDER> <LLAVEIZQ> (Codigo())+ <LLAVEDER>
             ( gramaticaSiNo() )*
+            {tablaSimbolos.exitScope();}
         } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
@@ -386,7 +390,9 @@ void gramaticaSi() : {}
 void gramaticaSiNo() : {}
 {
     try {
+        {tablaSimbolos.enterScope();}
             <SINO> <LLAVEIZQ> (Codigo())+ <LLAVEDER>
+            {tablaSimbolos.exitScope();}
         } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
@@ -423,9 +429,11 @@ void OperadoresComparadores() : {}
 void gramaticaWhile() : {}
 {
     try{
+        {tablaSimbolos.enterScope();}
         <WHILE> <PARENIZQ> 
         condicion() 
         <PARENDER> <LLAVEIZQ> (Codigo())+ <LLAVEDER> 
+        {tablaSimbolos.exitScope();}
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
@@ -496,9 +504,11 @@ void condicionLogico(): {}
 void gramaticaFor(): {}
 {
     try{
+        {tablaSimbolos.enterScope();}
         <FOR>  <PARENIZQ>
             (condicionFor())
-        <PARENDER> <LLAVEIZQ> (Codigo())+ <LLAVEDER> 
+        <PARENDER> <LLAVEIZQ> (Codigo())+ <LLAVEDER>
+        {tablaSimbolos.exitScope();}
                 } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
@@ -537,35 +547,81 @@ void operadorIncDec(): {}
 	< INC > | < DEC > 
 }
 
-void inicializarArregloEntero() : {}
+void inicializarArregloEntero() : {Token t, t1, ta; int cantidadValores = 0; int tamanio;}
 {
     try{
-        <ENT> <IDENTIFICADOR> <CORCHIZQ> <ENTEROS> <CORCHDER> 
-        <IGUAL> <LLAVEIZQ> <ENTEROS> (<COMA> <ENTEROS>)* <LLAVEDER> <DELIMITADOR>
+
+       t1 = <ENT> t = <IDENTIFICADOR>
+        {
+            if(tablaSimbolos.contains(t.image)) tabla.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbol(t.image, t1.image);
+        }
+        <CORCHIZQ> ta = <ENTEROS> <CORCHDER>
+        <IGUAL> <LLAVEIZQ> (cantidadValores = ValoresEntero(cantidadValores)) <LLAVEDER> <DELIMITADOR>
+        {
+        cantidadValores = cantidadValores + 1;
+        tamanio = Integer.parseInt(ta.image);
+        System.out.println(tamanio);
+        System.out.println(cantidadValores);
+         if(cantidadValores > tamanio) tabla.add("Error semántico: Se exedio el tamaño del arreglo");
+         if(cantidadValores < tamanio) tabla.add("Error semántico: No se abarco todo el tamaño del arreglo");
+         if(tamanio == 0) tabla.add("Error semántico: Valor no permitido");
+        }
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
 }
 
-void inicializarArregloCadena() : {}
+void inicializarArregloCadena() : {Token t, t1, ta; int tamanio, cantidadValores = 0;}
 {
     try{
-        <CAD> <IDENTIFICADOR> <CORCHIZQ> <ENTEROS> <CORCHDER> 
-        <IGUAL> <LLAVEIZQ> <VCAD> (<COMA> <VCAD>)*  <LLAVEDER> <DELIMITADOR>
+
+        t1 = <CAD> t = <IDENTIFICADOR>
+        {
+            if(tablaSimbolos.contains(t.image)) tabla.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbol(t.image, t1.image);
+        }
+        <CORCHIZQ> ta = <ENTEROS> <CORCHDER>
+        <IGUAL> <LLAVEIZQ> (cantidadValores = ValoresCadena(cantidadValores))  <LLAVEDER> <DELIMITADOR>
+        {
+        cantidadValores = cantidadValores + 1;
+        tamanio = Integer.parseInt(ta.image);
+        System.out.println(tamanio);
+        System.out.println(cantidadValores);
+         if(cantidadValores > tamanio) tabla.add("Error semántico: Se exedio el tamaño del arreglo");
+         if(cantidadValores < tamanio) tabla.add("Error semántico: No se abarco todo el tamaño del arreglo");
+         if(tamanio == 0) tabla.add("Error semántico: Valor no permitido");
+        }
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
+}
+
+int ValoresEntero(int cantidadValores): {}
+{
+    <ENTEROS> (<COMA> cantidadValores = ValoresEntero(cantidadValores + 1))?
+    {System.out.println("Valor: "+cantidadValores);}
+    {return cantidadValores;}
+}
+
+int ValoresCadena(int cantidadValores): {}
+{
+    <VCAD> (<COMA> cantidadValores = ValoresCadena(cantidadValores + 1))?
+    {System.out.println("Valor: "+cantidadValores);}
+    {return cantidadValores;}
 }
 
 void SentenciasProcedimientos() : {}
 {
     try{
+        {tablaSimbolos.enterScope();}
         <PROC> PalabrasReservadas() <VOID> <IDENTIFICADOR> <PARENIZQ> <PARENDER>
         <LLAVEIZQ>
         (
             Codigo()
         )+
         <LLAVEDER>
+        {tablaSimbolos.exitScope();}
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
@@ -574,6 +630,7 @@ void SentenciasProcedimientos() : {}
 void SentenciasFunciones() : {}
 {
     try{
+        {tablaSimbolos.enterScope();}
         <FUNC> PalabrasReservadas() tipoDato() <IDENTIFICADOR> <PARENIZQ> [parametros()] <PARENDER>
         <LLAVEIZQ>
         (
@@ -581,6 +638,7 @@ void SentenciasFunciones() : {}
         )*
         returnStatement()
         <LLAVEDER>
+        {tablaSimbolos.exitScope();}
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }

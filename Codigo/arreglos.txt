@@ -1,5 +1,4 @@
 Inicio main
 {
-	ent ArregloEntero [5] = {1,2,3,4,5};
-	cad ArregloCadena [5] = {"hola","mundo"};
+	cad ArregloCadena [3] = {"Hola","Adios"};
 }FIN

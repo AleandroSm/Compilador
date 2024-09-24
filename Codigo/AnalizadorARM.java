@@ -105,6 +105,7 @@ public class AnalizadorARM implements AnalizadorARMConstants {
 
   final public void principal() throws ParseException {
     try {
+tablaSimbolos.enterScope();
       jj_consume_token(INICIO);
       jj_consume_token(IDENTIFICADOR);
       jj_consume_token(LLAVEIZQ);
@@ -134,6 +135,7 @@ public class AnalizadorARM implements AnalizadorARMConstants {
       }
       jj_consume_token(LLAVEDER);
       jj_consume_token(FIN);
+tablaSimbolos.exitScope();
     } catch (ParseException e) {
 tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
@@ -203,7 +205,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
       t = jj_consume_token(IDENTIFICADOR);
       t1 = tipoDato();
 if(tablaSimbolos.contains(t.image)) tabla.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
-            else tablaSimbolos.addSymbol(t.image, new Symbol(t.image,t1.image));
+            else tablaSimbolos.addSymbol(t.image, t1.image);
       switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
       case IGUAL:{
         jj_consume_token(IGUAL);
@@ -252,28 +254,28 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
     case ENTEROS:{
       t = jj_consume_token(ENTEROS);
-if (!tipoEsperado.equals("ent")) {
+if (!tipoEsperado.equals("ent") && !tipoEsperado.isEmpty()) {
             tabla.add("Error sem\u00e1ntico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontr\u00f3 un entero");
         }
       break;
       }
     case VCAD:{
       t = jj_consume_token(VCAD);
-if (!tipoEsperado.equals("cad")) {
+if (!tipoEsperado.equals("cad") && !tipoEsperado.isEmpty()) {
             tabla.add("Error sem\u00e1ntico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontr\u00f3 una cadena");
         }
       break;
       }
     case NUMERODECIMAL:{
       t = jj_consume_token(NUMERODECIMAL);
-if (!tipoEsperado.equals("flot")) {
+if (!tipoEsperado.equals("flot") && !tipoEsperado.isEmpty()) {
             tabla.add("Error sem\u00e1ntico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontr\u00f3 un n\u00famero decimal");
         }
       break;
       }
     case IDENTIFICADOR:{
       t = jj_consume_token(IDENTIFICADOR);
-if (!tablaSimbolos.contains(t.image)) {
+if (!tablaSimbolos.contains(t.image) && !tipoEsperado.isEmpty()) {
             tabla.add("Error sem\u00e1ntico: La variable " + t.image + " no ha sido declarada");
         } else if (!tablaSimbolos.checkType(t.image, tipoEsperado)) {
             tabla.add("Error sem\u00e1ntico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontr\u00f3 " + tablaSimbolos.getType(t.image));
@@ -393,6 +395,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
   final public void gramaticaSi() throws ParseException {
     try {
+tablaSimbolos.enterScope();
       jj_consume_token(SI);
       jj_consume_token(PARENIZQ);
       label_4:
@@ -451,6 +454,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
         gramaticaSiNo();
       }
+tablaSimbolos.exitScope();
     } catch (ParseException e) {
 tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
@@ -459,6 +463,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
   final public void gramaticaSiNo() throws ParseException {
     try {
+tablaSimbolos.enterScope();
       jj_consume_token(SINO);
       jj_consume_token(LLAVEIZQ);
       label_7:
@@ -486,6 +491,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
       }
       jj_consume_token(LLAVEDER);
+tablaSimbolos.exitScope();
     } catch (ParseException e) {
 tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
@@ -586,6 +592,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
   final public void gramaticaWhile() throws ParseException {
     try {
+tablaSimbolos.enterScope();
       jj_consume_token(WHILE);
       jj_consume_token(PARENIZQ);
       condicion();
@@ -616,6 +623,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
       }
       jj_consume_token(LLAVEDER);
+tablaSimbolos.exitScope();
     } catch (ParseException e) {
 tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
@@ -762,6 +770,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
   final public void gramaticaFor() throws ParseException {
     try {
+tablaSimbolos.enterScope();
       jj_consume_token(FOR);
       jj_consume_token(PARENIZQ);
       condicionFor();
@@ -792,6 +801,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
       }
       jj_consume_token(LLAVEDER);
+tablaSimbolos.exitScope();
     } catch (ParseException e) {
 tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
@@ -852,72 +862,97 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     }
   }
 
-  final public void inicializarArregloEntero() throws ParseException {
+  final public void inicializarArregloEntero() throws ParseException {Token t, t1, ta; int cantidadValores = 0; int tamanio;
     try {
-      jj_consume_token(ENT);
-      jj_consume_token(IDENTIFICADOR);
+      t1 = jj_consume_token(ENT);
+      t = jj_consume_token(IDENTIFICADOR);
+if(tablaSimbolos.contains(t.image)) tabla.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbol(t.image, t1.image);
       jj_consume_token(CORCHIZQ);
-      jj_consume_token(ENTEROS);
+      ta = jj_consume_token(ENTEROS);
       jj_consume_token(CORCHDER);
       jj_consume_token(IGUAL);
       jj_consume_token(LLAVEIZQ);
-      jj_consume_token(ENTEROS);
-      label_12:
-      while (true) {
-        switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
-        case COMA:{
-          ;
-          break;
-          }
-        default:
-          jj_la1[24] = jj_gen;
-          break label_12;
-        }
-        jj_consume_token(COMA);
-        jj_consume_token(ENTEROS);
-      }
+      cantidadValores = ValoresEntero(cantidadValores);
       jj_consume_token(LLAVEDER);
       jj_consume_token(DELIMITADOR);
+cantidadValores = cantidadValores + 1;
+        tamanio = Integer.parseInt(ta.image);
+        System.out.println(tamanio);
+        System.out.println(cantidadValores);
+         if(cantidadValores > tamanio) tabla.add("Error sem\u00e1ntico: Se exedio el tama\u00f1o del arreglo");
+         if(cantidadValores < tamanio) tabla.add("Error sem\u00e1ntico: No se abarco todo el tama\u00f1o del arreglo");
+         if(tamanio == 0) tabla.add("Error sem\u00e1ntico: Valor no permitido");
     } catch (ParseException e) {
 tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
     }
   }
 
-  final public void inicializarArregloCadena() throws ParseException {
+  final public void inicializarArregloCadena() throws ParseException {Token t, t1, ta; int tamanio, cantidadValores = 0;
     try {
-      jj_consume_token(CAD);
-      jj_consume_token(IDENTIFICADOR);
+      t1 = jj_consume_token(CAD);
+      t = jj_consume_token(IDENTIFICADOR);
+if(tablaSimbolos.contains(t.image)) tabla.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbol(t.image, t1.image);
       jj_consume_token(CORCHIZQ);
-      jj_consume_token(ENTEROS);
+      ta = jj_consume_token(ENTEROS);
       jj_consume_token(CORCHDER);
       jj_consume_token(IGUAL);
       jj_consume_token(LLAVEIZQ);
-      jj_consume_token(VCAD);
-      label_13:
-      while (true) {
-        switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
-        case COMA:{
-          ;
-          break;
-          }
-        default:
-          jj_la1[25] = jj_gen;
-          break label_13;
-        }
-        jj_consume_token(COMA);
-        jj_consume_token(VCAD);
-      }
+      cantidadValores = ValoresCadena(cantidadValores);
       jj_consume_token(LLAVEDER);
       jj_consume_token(DELIMITADOR);
+cantidadValores = cantidadValores + 1;
+        tamanio = Integer.parseInt(ta.image);
+        System.out.println(tamanio);
+        System.out.println(cantidadValores);
+         if(cantidadValores > tamanio) tabla.add("Error sem\u00e1ntico: Se exedio el tama\u00f1o del arreglo");
+         if(cantidadValores < tamanio) tabla.add("Error sem\u00e1ntico: No se abarco todo el tama\u00f1o del arreglo");
+         if(tamanio == 0) tabla.add("Error sem\u00e1ntico: Valor no permitido");
     } catch (ParseException e) {
 tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
     }
+  }
+
+  final public int ValoresEntero(int cantidadValores) throws ParseException {
+    jj_consume_token(ENTEROS);
+    switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
+    case COMA:{
+      jj_consume_token(COMA);
+      cantidadValores = ValoresEntero(cantidadValores + 1);
+      break;
+      }
+    default:
+      jj_la1[24] = jj_gen;
+      ;
+    }
+System.out.println("Valor: "+cantidadValores);
+{if ("" != null) return cantidadValores;}
+    throw new Error("Missing return statement in function");
+  }
+
+  final public int ValoresCadena(int cantidadValores) throws ParseException {
+    jj_consume_token(VCAD);
+    switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
+    case COMA:{
+      jj_consume_token(COMA);
+      cantidadValores = ValoresCadena(cantidadValores + 1);
+      break;
+      }
+    default:
+      jj_la1[25] = jj_gen;
+      ;
+    }
+System.out.println("Valor: "+cantidadValores);
+{if ("" != null) return cantidadValores;}
+    throw new Error("Missing return statement in function");
   }
 
   final public void SentenciasProcedimientos() throws ParseException {
     try {
+tablaSimbolos.enterScope();
       jj_consume_token(PROC);
       PalabrasReservadas();
       jj_consume_token(VOID);
@@ -925,7 +960,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
       jj_consume_token(PARENIZQ);
       jj_consume_token(PARENDER);
       jj_consume_token(LLAVEIZQ);
-      label_14:
+      label_12:
       while (true) {
         Codigo();
         switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
@@ -946,10 +981,11 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
           }
         default:
           jj_la1[26] = jj_gen;
-          break label_14;
+          break label_12;
         }
       }
       jj_consume_token(LLAVEDER);
+tablaSimbolos.exitScope();
     } catch (ParseException e) {
 tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
@@ -958,6 +994,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
   final public void SentenciasFunciones() throws ParseException {
     try {
+tablaSimbolos.enterScope();
       jj_consume_token(FUNC);
       PalabrasReservadas();
       tipoDato();
@@ -977,7 +1014,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
       }
       jj_consume_token(PARENDER);
       jj_consume_token(LLAVEIZQ);
-      label_15:
+      label_13:
       while (true) {
         switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
         case ENT:
@@ -997,12 +1034,13 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
           }
         default:
           jj_la1[28] = jj_gen;
-          break label_15;
+          break label_13;
         }
         Codigo();
       }
       returnStatement();
       jj_consume_token(LLAVEDER);
+tablaSimbolos.exitScope();
     } catch (ParseException e) {
 tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
@@ -1024,7 +1062,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     try {
       tipoDato();
       jj_consume_token(IDENTIFICADOR);
-      label_16:
+      label_14:
       while (true) {
         switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
         case COMA:{
@@ -1033,7 +1071,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
           }
         default:
           jj_la1[29] = jj_gen;
-          break label_16;
+          break label_14;
         }
         jj_consume_token(COMA);
         tipoDato();
