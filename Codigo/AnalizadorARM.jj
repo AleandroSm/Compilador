@@ -13,6 +13,7 @@ import java.util.ArrayList;
 public class AnalizadorARM {
     //Array que guarda los Errores encontrados en el codigo que se ejecuta
     static ArrayList<String> tabla = AnalizadorARMTokenManager.tablaErrores;
+    //Generamos una tabla de simbolos
     private SymbolTable tablaSimbolos = new SymbolTable();
 
     public static void main(String[] args) {

@@ -1,8 +1,8 @@
 Inicio main
 {
   var num ent = 1;
-  var num1 flot = 2.5;
-  var num2 flot = 3;
+  var num2 flot = 2.5;
+  var num3 flot = 3.0;
   leer (variable);
   escribir("hola mundo" + num + "el resultado:");
 }Fin
