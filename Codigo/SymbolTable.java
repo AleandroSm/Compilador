@@ -1,28 +1,57 @@
 import java.util.HashMap;
 
+import java.util.Stack;
+
 public class SymbolTable {
-    private HashMap<String, Symbol> table;
+    private Stack<HashMap<String, String>> scopes;
 
     public SymbolTable() {
-        table = new HashMap<>();
+        scopes = new Stack<>();
+        enterScope(); // Start with a global scope
     }
 
-    public void addSymbol(String name, Symbol symbol) {
-        table.put(name, symbol);
+    public void enterScope() {
+        scopes.push(new HashMap<>());
+    }
+
+    public void exitScope() {
+        if (!scopes.isEmpty()) {
+            scopes.pop();
+        }
+    }
+
+    public void addSymbol(String name, String type) {
+        if (!scopes.isEmpty()) {
+            scopes.peek().put(name, type);
+        }
     }
 
     public String getType(String name) {
-        return table.get(name).getType();
+        for (int i = scopes.size() - 1; i >= 0; i--) {
+            if (scopes.get(i).containsKey(name)) {
+                return scopes.get(i).get(name);
+            }
+        }
+        return "";
     }
 
     public boolean contains(String name) {
-        return table.containsKey(name);
+        for (int i = scopes.size() - 1; i >= 0; i--) {
+            if (scopes.get(i).containsKey(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean checkType(String name, String type) {
-        return table.get(name).getType().equals(type);
+        for (int i = scopes.size() - 1; i >= 0; i--) {
+            if (scopes.get(i).containsKey(name)) {
+                return scopes.get(i).get(name).equals(type);
+            }
+        }
+        return false;
     }
-
 }
 
 class Symbol {
