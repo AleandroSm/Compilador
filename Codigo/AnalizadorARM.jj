@@ -13,8 +13,34 @@ import java.util.ArrayList;
 public class AnalizadorARM {
     //Array que guarda los Errores encontrados en el codigo que se ejecuta
     static ArrayList<String> tabla = AnalizadorARMTokenManager.tablaErrores;
+    //Array que guarda los Errores semanticos encontrados en el codigo
+    static ArrayList<String> tabla2 = AnalizadorARMTokenManager.tablaErrores;
+    //Array que guarda los valores para convertirlos a cuadruplos
+    static ArrayList<String> intermediateCode = new ArrayList<String>();
+    static int tempCount = 0;
     //Generamos una tabla de simbolos
     private SymbolTable tablaSimbolos = new SymbolTable();
+
+    //Crea una nueva variable temporal
+    static String newTemp() {
+            return "t" + tempCount++;
+    }
+
+    //Guarda las variaables temporales con su respectiva operacion en el Array
+    static void emit(String op, String arg1, String arg2, String result) {
+        if (arg2.isEmpty()) {
+            intermediateCode.add(result + " -> " + op + " " + arg1);
+        } else {
+            intermediateCode.add(result + " -> " + arg1 + " " + op + " " + arg2);
+        }
+    }
+
+    //Guardar en un txt el cuadruplo
+    static void printIntermediateCode() {
+        for (String code : intermediateCode) {
+            System.out.println(code);
+        }
+    }
 
     public static void main(String[] args) {
         try {
@@ -28,6 +54,8 @@ public class AnalizadorARM {
             //Llama al método parse para comenzar el análisis léxico y sintáctico del archivo.
             parser.parse(nombreArchivo);
 
+            printIntermediateCode();
+
             //Si se encuentras algun objeto en la lista tabla es que hay un error sintatico asi que se imprime el error
             if (tabla.size() != 0) {
                 System.out.println("\n ==================================================================================== \n");
@@ -39,6 +67,18 @@ public class AnalizadorARM {
             } else { //Si no hay ningun error se meciona y se sigue
                 System.out.println("\n ==================================================================================== \n");
                 System.out.println("\t ** NO se encontraron errores sintácticos en el código ** ");
+            }
+
+            if (tabla2.size() != 0) {
+                System.out.println("\n ==================================================================================== \n");
+                System.out.println("\n** Se encontraron errores semanticos en el código **\n");
+                for (String error : tabla2) {
+                    System.out.println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ \n");
+                    System.out.println(error);
+                }
+            } else { //Si no hay ningun error se meciona y se sigue
+                System.out.println("\n ==================================================================================== \n");
+                System.out.println("\t ** NO se encontraron errores semanticos en el código ** ");
             }
         } catch (FileNotFoundException fe) {
             System.out.println(fe.getMessage());
@@ -286,17 +326,21 @@ void Codigo() : {}
         | SentenciasFunciones()
 }
 
-void declararVariable() : {Token t,t1;}
+void declararVariable() : {Token t,t1, t3;}
 {
     try {
         <VAR> t =  <IDENTIFICADOR>
         t1 = tipoDato()
         {
-            if(tablaSimbolos.contains(t.image)) tabla.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+            if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
             else tablaSimbolos.addSymbol(t.image, t1.image);
         }
         [<IGUAL> 
-        valor2(t1.image)
+        t3 = valor2(t1.image)
+        {
+            String temp = newTemp();
+            emit("=", t3.image, "", t.image);
+        }
         ] <DELIMITADOR>
 
     } catch (ParseException e) {
@@ -316,29 +360,33 @@ Token tipoDato() : {Token t = null;}
     }
 }
 
-void valor2(String tipoEsperado) : {Token t;}
+Token valor2(String tipoEsperado) : {Token t;}
 {
     t = <ENTEROS> {
         if (!tipoEsperado.equals("ent") && !tipoEsperado.isEmpty()) {
-            tabla.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró un entero");
+            tabla2.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró un entero");
         }
+        return t;
     }
     | t = <VCAD> {
         if (!tipoEsperado.equals("cad") && !tipoEsperado.isEmpty()) {
-            tabla.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró una cadena");
+            tabla2.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró una cadena");
         }
+        return t;
     }
     | t = <NUMERODECIMAL> {
         if (!tipoEsperado.equals("flot") && !tipoEsperado.isEmpty()) {
-            tabla.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró un número decimal");
+            tabla2.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró un número decimal");
         }
+        return t;
     }
     | t = <IDENTIFICADOR> {
         if (!tablaSimbolos.contains(t.image) && !tipoEsperado.isEmpty()) {
-            tabla.add("Error semántico: La variable " + t.image + " no ha sido declarada");
+            tabla2.add("Error semántico: La variable " + t.image + " no ha sido declarada");
         } else if (!tablaSimbolos.checkType(t.image, tipoEsperado)) {
-            tabla.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró " + tablaSimbolos.getType(t.image));
+            tabla2.add("Error semántico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontró " + tablaSimbolos.getType(t.image));
         }
+        return t;
     }
 }
 
@@ -447,7 +495,7 @@ void gramaticaAsignacion(): {Token t;}
 	        operacionSimple(tablaSimbolos.getType(t.image))
 	            {
 	                if(!tablaSimbolos.contains(t.image)){
-                    tabla.add("Error semántico: La variable " + t.image + " no ha sido declarada");
+                    tabla2.add("Error semántico: La variable " + t.image + " no ha sido declarada");
                 }
 	        }
 	        <DELIMITADOR>
@@ -456,11 +504,11 @@ void gramaticaAsignacion(): {Token t;}
         }
 }
 
-void operacionSimple(String type): { }
+void operacionSimple(String type): {}
 {
     try{
             (  valor2(type) | operacionParentesis(type))
-            ( operadorAritmetico() (valor2(type) | operacionParentesis(type)) )*
+            ( operadorAritmetico() ( valor2(type) | operacionParentesis(type)) )*
         } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
@@ -553,7 +601,7 @@ void inicializarArregloEntero() : {Token t, t1, ta; int cantidadValores = 0; int
 
        t1 = <ENT> t = <IDENTIFICADOR>
         {
-            if(tablaSimbolos.contains(t.image)) tabla.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+            if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
             else tablaSimbolos.addSymbol(t.image, t1.image);
         }
         <CORCHIZQ> ta = <ENTEROS> <CORCHDER>
@@ -561,11 +609,9 @@ void inicializarArregloEntero() : {Token t, t1, ta; int cantidadValores = 0; int
         {
         cantidadValores = cantidadValores + 1;
         tamanio = Integer.parseInt(ta.image);
-        System.out.println(tamanio);
-        System.out.println(cantidadValores);
-         if(cantidadValores > tamanio) tabla.add("Error semántico: Se exedio el tamaño del arreglo");
-         if(cantidadValores < tamanio) tabla.add("Error semántico: No se abarco todo el tamaño del arreglo");
-         if(tamanio == 0) tabla.add("Error semántico: Valor no permitido");
+         if(cantidadValores > tamanio) tabla2.add("Error semántico: Se exedio el tamaño del arreglo");
+         if(cantidadValores < tamanio) tabla2.add("Error semántico: No se abarco todo el tamaño del arreglo");
+         if(tamanio == 0) tabla2.add("Error semántico: Valor no permitido");
         }
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
@@ -578,7 +624,7 @@ void inicializarArregloCadena() : {Token t, t1, ta; int tamanio, cantidadValores
 
         t1 = <CAD> t = <IDENTIFICADOR>
         {
-            if(tablaSimbolos.contains(t.image)) tabla.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+            if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
             else tablaSimbolos.addSymbol(t.image, t1.image);
         }
         <CORCHIZQ> ta = <ENTEROS> <CORCHDER>
@@ -586,11 +632,9 @@ void inicializarArregloCadena() : {Token t, t1, ta; int tamanio, cantidadValores
         {
         cantidadValores = cantidadValores + 1;
         tamanio = Integer.parseInt(ta.image);
-        System.out.println(tamanio);
-        System.out.println(cantidadValores);
-         if(cantidadValores > tamanio) tabla.add("Error semántico: Se exedio el tamaño del arreglo");
-         if(cantidadValores < tamanio) tabla.add("Error semántico: No se abarco todo el tamaño del arreglo");
-         if(tamanio == 0) tabla.add("Error semántico: Valor no permitido");
+         if(cantidadValores > tamanio) tabla2.add("Error semántico: Se exedio el tamaño del arreglo");
+         if(cantidadValores < tamanio) tabla2.add("Error semántico: No se abarco todo el tamaño del arreglo");
+         if(tamanio == 0) tabla2.add("Error semántico: Valor no permitido");
         }
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
@@ -600,22 +644,25 @@ void inicializarArregloCadena() : {Token t, t1, ta; int tamanio, cantidadValores
 int ValoresEntero(int cantidadValores): {}
 {
     <ENTEROS> (<COMA> cantidadValores = ValoresEntero(cantidadValores + 1))?
-    {System.out.println("Valor: "+cantidadValores);}
     {return cantidadValores;}
 }
 
 int ValoresCadena(int cantidadValores): {}
 {
     <VCAD> (<COMA> cantidadValores = ValoresCadena(cantidadValores + 1))?
-    {System.out.println("Valor: "+cantidadValores);}
     {return cantidadValores;}
 }
 
-void SentenciasProcedimientos() : {}
+void SentenciasProcedimientos() : {Token t;}
 {
     try{
         {tablaSimbolos.enterScope();}
-        <PROC> PalabrasReservadas() <VOID> <IDENTIFICADOR> <PARENIZQ> <PARENDER>
+        <PROC> PalabrasReservadas() <VOID> t = <IDENTIFICADOR>
+        {
+            if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbolV(t.image);
+        }
+        <PARENIZQ> <PARENDER>
         <LLAVEIZQ>
         (
             Codigo()
@@ -627,36 +674,53 @@ void SentenciasProcedimientos() : {}
         }
 }
 
-void SentenciasFunciones() : {}
+void SentenciasFunciones() : {Token t, t1;}
 {
     try{
         {tablaSimbolos.enterScope();}
-        <FUNC> PalabrasReservadas() tipoDato() <IDENTIFICADOR> <PARENIZQ> [parametros()] <PARENDER>
+        <FUNC> PalabrasReservadas() t1 = tipoDato() t = <IDENTIFICADOR>
+        {
+            if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbol(t.image, t1.image);
+        }
+        <PARENIZQ>
+        [parametros()]
+        <PARENDER>
         <LLAVEIZQ>
         (
            Codigo()
         )*
-        returnStatement()
+        <RETURN> valor2(t1.image) <DELIMITADOR>
         <LLAVEDER>
         {tablaSimbolos.exitScope();}
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
 }
-
-void returnStatement() : {}
+/*
+void returnStatement(Token t) : {}
 {
     try{
-        <RETURN> valor() <DELIMITADOR>
+        <RETURN> valor2(token.imagen) <DELIMITADOR>
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
 }
-
-void parametros() : {}
+*/
+void parametros() : {Token t, t1;}
 {
     try{
-        tipoDato() <IDENTIFICADOR> ( <COMA> tipoDato() <IDENTIFICADOR> )*
+        t1 = tipoDato() t = <IDENTIFICADOR>
+        {
+            if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbol(t.image, t1.image);
+        }
+        ( <COMA> t1 = tipoDato() t = <IDENTIFICADOR>
+        {
+            if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbol(t.image, t1.image);
+        }
+        )*
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }

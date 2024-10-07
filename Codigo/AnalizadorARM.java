@@ -6,8 +6,34 @@ import java.util.ArrayList;
 public class AnalizadorARM implements AnalizadorARMConstants {
     //Array que guarda los Errores encontrados en el codigo que se ejecuta
     static ArrayList<String> tabla = AnalizadorARMTokenManager.tablaErrores;
+    //Array que guarda los Errores semanticos encontrados en el codigo
+    static ArrayList<String> tabla2 = AnalizadorARMTokenManager.tablaErrores;
+    //Array que guarda los valores para convertirlos a cuadruplos
+    static ArrayList<String> intermediateCode = new ArrayList<String>();
+    static int tempCount = 0;
     //Generamos una tabla de simbolos
     private SymbolTable tablaSimbolos = new SymbolTable();
+
+    //Crea una nueva variable temporal
+    static String newTemp() {
+            return "t" + tempCount++;
+    }
+
+    //Guarda las variaables temporales con su respectiva operacion en el Array
+    static void emit(String op, String arg1, String arg2, String result) {
+        if (arg2.isEmpty()) {
+            intermediateCode.add(result + " -> " + op + " " + arg1);
+        } else {
+            intermediateCode.add(result + " -> " + arg1 + " " + op + " " + arg2);
+        }
+    }
+
+    //Guardar en un txt el cuadruplo
+    static void printIntermediateCode() {
+        for (String code : intermediateCode) {
+            System.out.println(code);
+        }
+    }
 
     public static void main(String[] args) {
         try {
@@ -21,6 +47,8 @@ public class AnalizadorARM implements AnalizadorARMConstants {
             //Llama al método parse para comenzar el análisis léxico y sintáctico del archivo.
             parser.parse(nombreArchivo);
 
+            printIntermediateCode();
+
             //Si se encuentras algun objeto en la lista tabla es que hay un error sintatico asi que se imprime el error
             if (tabla.size() != 0) {
                 System.out.println("\u005cn ==================================================================================== \u005cn");
@@ -32,6 +60,18 @@ public class AnalizadorARM implements AnalizadorARMConstants {
             } else { //Si no hay ningun error se meciona y se sigue
                 System.out.println("\u005cn ==================================================================================== \u005cn");
                 System.out.println("\u005ct ** NO se encontraron errores sint\u00e1cticos en el c\u00f3digo ** ");
+            }
+
+            if (tabla2.size() != 0) {
+                System.out.println("\u005cn ==================================================================================== \u005cn");
+                System.out.println("\u005cn** Se encontraron errores semanticos en el c\u00f3digo **\u005cn");
+                for (String error : tabla2) {
+                    System.out.println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ \u005cn");
+                    System.out.println(error);
+                }
+            } else { //Si no hay ningun error se meciona y se sigue
+                System.out.println("\u005cn ==================================================================================== \u005cn");
+                System.out.println("\u005ct ** NO se encontraron errores semanticos en el c\u00f3digo ** ");
             }
         } catch (FileNotFoundException fe) {
             System.out.println(fe.getMessage());
@@ -199,17 +239,19 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     }
   }
 
-  final public void declararVariable() throws ParseException {Token t,t1;
+  final public void declararVariable() throws ParseException {Token t,t1, t3;
     try {
       jj_consume_token(VAR);
       t = jj_consume_token(IDENTIFICADOR);
       t1 = tipoDato();
-if(tablaSimbolos.contains(t.image)) tabla.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
+if(tablaSimbolos.contains(t.image)) tabla2.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
             else tablaSimbolos.addSymbol(t.image, t1.image);
       switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
       case IGUAL:{
         jj_consume_token(IGUAL);
-        valor2(t1.image);
+        t3 = valor2(t1.image);
+String temp = newTemp();
+            emit("=", t3.image, "", t.image);
         break;
         }
       default:
@@ -250,36 +292,40 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     throw new Error("Missing return statement in function");
   }
 
-  final public void valor2(String tipoEsperado) throws ParseException {Token t;
+  final public Token valor2(String tipoEsperado) throws ParseException {Token t;
     switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
     case ENTEROS:{
       t = jj_consume_token(ENTEROS);
 if (!tipoEsperado.equals("ent") && !tipoEsperado.isEmpty()) {
-            tabla.add("Error sem\u00e1ntico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontr\u00f3 un entero");
+            tabla2.add("Error sem\u00e1ntico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontr\u00f3 un entero");
         }
+        {if ("" != null) return t;}
       break;
       }
     case VCAD:{
       t = jj_consume_token(VCAD);
 if (!tipoEsperado.equals("cad") && !tipoEsperado.isEmpty()) {
-            tabla.add("Error sem\u00e1ntico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontr\u00f3 una cadena");
+            tabla2.add("Error sem\u00e1ntico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontr\u00f3 una cadena");
         }
+        {if ("" != null) return t;}
       break;
       }
     case NUMERODECIMAL:{
       t = jj_consume_token(NUMERODECIMAL);
 if (!tipoEsperado.equals("flot") && !tipoEsperado.isEmpty()) {
-            tabla.add("Error sem\u00e1ntico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontr\u00f3 un n\u00famero decimal");
+            tabla2.add("Error sem\u00e1ntico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontr\u00f3 un n\u00famero decimal");
         }
+        {if ("" != null) return t;}
       break;
       }
     case IDENTIFICADOR:{
       t = jj_consume_token(IDENTIFICADOR);
 if (!tablaSimbolos.contains(t.image) && !tipoEsperado.isEmpty()) {
-            tabla.add("Error sem\u00e1ntico: La variable " + t.image + " no ha sido declarada");
+            tabla2.add("Error sem\u00e1ntico: La variable " + t.image + " no ha sido declarada");
         } else if (!tablaSimbolos.checkType(t.image, tipoEsperado)) {
-            tabla.add("Error sem\u00e1ntico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontr\u00f3 " + tablaSimbolos.getType(t.image));
+            tabla2.add("Error sem\u00e1ntico: Se esperaba un valor de tipo " + tipoEsperado + " pero se encontr\u00f3 " + tablaSimbolos.getType(t.image));
         }
+        {if ("" != null) return t;}
       break;
       }
     default:
@@ -287,6 +333,7 @@ if (!tablaSimbolos.contains(t.image) && !tipoEsperado.isEmpty()) {
       jj_consume_token(-1);
       throw new ParseException();
     }
+    throw new Error("Missing return statement in function");
   }
 
   final public void valor() throws ParseException {
@@ -636,7 +683,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
       jj_consume_token(IGUAL);
       operacionSimple(tablaSimbolos.getType(t.image));
 if(!tablaSimbolos.contains(t.image)){
-                    tabla.add("Error sem\u00e1ntico: La variable " + t.image + " no ha sido declarada");
+                    tabla2.add("Error sem\u00e1ntico: La variable " + t.image + " no ha sido declarada");
                 }
       jj_consume_token(DELIMITADOR);
     } catch (ParseException e) {
@@ -866,7 +913,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     try {
       t1 = jj_consume_token(ENT);
       t = jj_consume_token(IDENTIFICADOR);
-if(tablaSimbolos.contains(t.image)) tabla.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
+if(tablaSimbolos.contains(t.image)) tabla2.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
             else tablaSimbolos.addSymbol(t.image, t1.image);
       jj_consume_token(CORCHIZQ);
       ta = jj_consume_token(ENTEROS);
@@ -878,11 +925,9 @@ if(tablaSimbolos.contains(t.image)) tabla.add("Error sem\u00e1ntico: La variable
       jj_consume_token(DELIMITADOR);
 cantidadValores = cantidadValores + 1;
         tamanio = Integer.parseInt(ta.image);
-        System.out.println(tamanio);
-        System.out.println(cantidadValores);
-         if(cantidadValores > tamanio) tabla.add("Error sem\u00e1ntico: Se exedio el tama\u00f1o del arreglo");
-         if(cantidadValores < tamanio) tabla.add("Error sem\u00e1ntico: No se abarco todo el tama\u00f1o del arreglo");
-         if(tamanio == 0) tabla.add("Error sem\u00e1ntico: Valor no permitido");
+         if(cantidadValores > tamanio) tabla2.add("Error sem\u00e1ntico: Se exedio el tama\u00f1o del arreglo");
+         if(cantidadValores < tamanio) tabla2.add("Error sem\u00e1ntico: No se abarco todo el tama\u00f1o del arreglo");
+         if(tamanio == 0) tabla2.add("Error sem\u00e1ntico: Valor no permitido");
     } catch (ParseException e) {
 tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
@@ -893,7 +938,7 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     try {
       t1 = jj_consume_token(CAD);
       t = jj_consume_token(IDENTIFICADOR);
-if(tablaSimbolos.contains(t.image)) tabla.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
+if(tablaSimbolos.contains(t.image)) tabla2.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
             else tablaSimbolos.addSymbol(t.image, t1.image);
       jj_consume_token(CORCHIZQ);
       ta = jj_consume_token(ENTEROS);
@@ -905,11 +950,9 @@ if(tablaSimbolos.contains(t.image)) tabla.add("Error sem\u00e1ntico: La variable
       jj_consume_token(DELIMITADOR);
 cantidadValores = cantidadValores + 1;
         tamanio = Integer.parseInt(ta.image);
-        System.out.println(tamanio);
-        System.out.println(cantidadValores);
-         if(cantidadValores > tamanio) tabla.add("Error sem\u00e1ntico: Se exedio el tama\u00f1o del arreglo");
-         if(cantidadValores < tamanio) tabla.add("Error sem\u00e1ntico: No se abarco todo el tama\u00f1o del arreglo");
-         if(tamanio == 0) tabla.add("Error sem\u00e1ntico: Valor no permitido");
+         if(cantidadValores > tamanio) tabla2.add("Error sem\u00e1ntico: Se exedio el tama\u00f1o del arreglo");
+         if(cantidadValores < tamanio) tabla2.add("Error sem\u00e1ntico: No se abarco todo el tama\u00f1o del arreglo");
+         if(tamanio == 0) tabla2.add("Error sem\u00e1ntico: Valor no permitido");
     } catch (ParseException e) {
 tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
 
@@ -928,7 +971,6 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
       jj_la1[24] = jj_gen;
       ;
     }
-System.out.println("Valor: "+cantidadValores);
 {if ("" != null) return cantidadValores;}
     throw new Error("Missing return statement in function");
   }
@@ -945,18 +987,19 @@ System.out.println("Valor: "+cantidadValores);
       jj_la1[25] = jj_gen;
       ;
     }
-System.out.println("Valor: "+cantidadValores);
 {if ("" != null) return cantidadValores;}
     throw new Error("Missing return statement in function");
   }
 
-  final public void SentenciasProcedimientos() throws ParseException {
+  final public void SentenciasProcedimientos() throws ParseException {Token t;
     try {
 tablaSimbolos.enterScope();
       jj_consume_token(PROC);
       PalabrasReservadas();
       jj_consume_token(VOID);
-      jj_consume_token(IDENTIFICADOR);
+      t = jj_consume_token(IDENTIFICADOR);
+if(tablaSimbolos.contains(t.image)) tabla2.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbolV(t.image);
       jj_consume_token(PARENIZQ);
       jj_consume_token(PARENDER);
       jj_consume_token(LLAVEIZQ);
@@ -992,13 +1035,15 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     }
   }
 
-  final public void SentenciasFunciones() throws ParseException {
+  final public void SentenciasFunciones() throws ParseException {Token t, t1;
     try {
 tablaSimbolos.enterScope();
       jj_consume_token(FUNC);
       PalabrasReservadas();
-      tipoDato();
-      jj_consume_token(IDENTIFICADOR);
+      t1 = tipoDato();
+      t = jj_consume_token(IDENTIFICADOR);
+if(tablaSimbolos.contains(t.image)) tabla2.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbol(t.image, t1.image);
       jj_consume_token(PARENIZQ);
       switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
       case ENT:
@@ -1038,7 +1083,9 @@ tablaSimbolos.enterScope();
         }
         Codigo();
       }
-      returnStatement();
+      jj_consume_token(RETURN);
+      valor2(t1.image);
+      jj_consume_token(DELIMITADOR);
       jj_consume_token(LLAVEDER);
 tablaSimbolos.exitScope();
     } catch (ParseException e) {
@@ -1047,21 +1094,22 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     }
   }
 
-  final public void returnStatement() throws ParseException {
-    try {
-      jj_consume_token(RETURN);
-      valor();
-      jj_consume_token(DELIMITADOR);
+/*
+void returnStatement(Token t) : {}
+{
+    try{
+        <RETURN> valor2(token.imagen) <DELIMITADOR>
     } catch (ParseException e) {
-tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
-
-    }
-  }
-
-  final public void parametros() throws ParseException {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+*/
+  final public void parametros() throws ParseException {Token t, t1;
     try {
-      tipoDato();
-      jj_consume_token(IDENTIFICADOR);
+      t1 = tipoDato();
+      t = jj_consume_token(IDENTIFICADOR);
+if(tablaSimbolos.contains(t.image)) tabla2.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbol(t.image, t1.image);
       label_14:
       while (true) {
         switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
@@ -1074,8 +1122,10 @@ tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
           break label_14;
         }
         jj_consume_token(COMA);
-        tipoDato();
-        jj_consume_token(IDENTIFICADOR);
+        t1 = tipoDato();
+        t = jj_consume_token(IDENTIFICADOR);
+if(tablaSimbolos.contains(t.image)) tabla2.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbol(t.image, t1.image);
       }
     } catch (ParseException e) {
 tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla

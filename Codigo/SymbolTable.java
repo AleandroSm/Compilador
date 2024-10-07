@@ -26,6 +26,12 @@ public class SymbolTable {
         }
     }
 
+    public void addSymbolV(String name) {
+        if (!scopes.isEmpty()) {
+            scopes.peek().put(name, null);
+        }
+    }
+
     public String getType(String name) {
         for (int i = scopes.size() - 1; i >= 0; i--) {
             if (scopes.get(i).containsKey(name)) {

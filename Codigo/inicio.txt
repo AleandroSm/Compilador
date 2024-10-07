@@ -1,15 +1,4 @@
 Inicio main
 {
-<<<<<<< HEAD
-  var num ent = 1;
-  var num2 flot = 2.5;
-  var num3 flot = 3.0;
-  leer (variable);
-  escribir("hola mundo" + num + "el resultado:");
-=======
-  while(num < 5){
-    var num ent = 0;
-  }
-  var num ent = 10;
->>>>>>> 30eb95538510ce146eddf9bd5750c1683a80c526
+  var num cad = "e";
 }Fin
