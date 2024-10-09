@@ -1,4 +1,4 @@
 Inicio main
 {
-  var num cad = "e";
+  var num cad;
 }Fin

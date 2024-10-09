@@ -1,0 +1,12 @@
+ent ->  hola
+ent ->  a
+ent ->  c
+ent -> func sumar
+ent -> param num
+ent ->  sumar2
+t0 -> a mult 3
+t1 -> t0 mas num
+t2 -> 50 mas t1
+t3 -> t2 menos c
+sumar2 -> = t3
+t4 -> return sumar2

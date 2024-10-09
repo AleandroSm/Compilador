@@ -1,10 +1,13 @@
 Inicio main
 {
 
+    var hola ent;
+    var a ent;
+    var c ent;
 
-
-	func publico ent sumar(ent num1){
-
+	func publico ent sumar(num ent){
+    var sumar2 ent;
+    sumar2 = 50 mas (a mult 3 mas num) menos c;
 		return sumar2;
 	}
 

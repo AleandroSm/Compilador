@@ -9,14 +9,17 @@ options {
 PARSER_BEGIN(AnalizadorARM)
 import java.io.*;
 import java.util.ArrayList;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 
 public class AnalizadorARM {
     //Array que guarda los Errores encontrados en el codigo que se ejecuta
     static ArrayList<String> tabla = AnalizadorARMTokenManager.tablaErrores;
     //Array que guarda los Errores semanticos encontrados en el codigo
-    static ArrayList<String> tabla2 = AnalizadorARMTokenManager.tablaErrores;
+    static ArrayList<String> tabla2 = new ArrayList<String>();
     //Array que guarda los valores para convertirlos a cuadruplos
     static ArrayList<String> intermediateCode = new ArrayList<String>();
+
     static int tempCount = 0;
     //Generamos una tabla de simbolos
     private SymbolTable tablaSimbolos = new SymbolTable();
@@ -35,13 +38,6 @@ public class AnalizadorARM {
         }
     }
 
-    //Guardar en un txt el cuadruplo
-    static void printIntermediateCode() {
-        for (String code : intermediateCode) {
-            System.out.println(code);
-        }
-    }
-
     public static void main(String[] args) {
         try {
             // Guarda el primer archivo mandado
@@ -54,7 +50,20 @@ public class AnalizadorARM {
             //Llama al método parse para comenzar el análisis léxico y sintáctico del archivo.
             parser.parse(nombreArchivo);
 
-            printIntermediateCode();
+
+        try{
+            FileWriter archivo = new FileWriter("Cuadruplos.txt");
+            PrintWriter escritor = new PrintWriter(archivo);
+
+        for (String code : intermediateCode) {
+            escritor.println(code);
+        }
+        escritor.close();
+
+        }catch(IOException e){
+
+        }
+
 
             //Si se encuentras algun objeto en la lista tabla es que hay un error sintatico asi que se imprime el error
             if (tabla.size() != 0) {
@@ -72,9 +81,9 @@ public class AnalizadorARM {
             if (tabla2.size() != 0) {
                 System.out.println("\n ==================================================================================== \n");
                 System.out.println("\n** Se encontraron errores semanticos en el código **\n");
-                for (String error : tabla2) {
+                for (int i = 0; tabla2.size() > i; i++ ) {
                     System.out.println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ \n");
-                    System.out.println(error);
+                    System.out.println(tabla2.get(i));
                 }
             } else { //Si no hay ningun error se meciona y se sigue
                 System.out.println("\n ==================================================================================== \n");
@@ -94,6 +103,7 @@ public class AnalizadorARM {
         FileReader lector = new FileReader(nombreArchivo); //Se genera otro Redactor para leer el archivo
         //Genera tokems desde el archivo de entrada
         AnalizadorARMTokenManager lexicManager = new AnalizadorARMTokenManager(new SimpleCharStream(lector));
+
 
         //Variables para saber si hay errores y saber si se analizo todo el archivo
         boolean seEncontraronErrores = false;
@@ -332,16 +342,18 @@ void declararVariable() : {Token t,t1, t3;}
         <VAR> t =  <IDENTIFICADOR>
         t1 = tipoDato()
         {
+            emit("", t.image, "", t1.image);
+
             if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
             else tablaSimbolos.addSymbol(t.image, t1.image);
         }
+        /*
         [<IGUAL> 
         t3 = valor2(t1.image)
         {
-            String temp = newTemp();
-            emit("=", t3.image, "", t.image);
+            emit("=", t3.image, "", temp);
         }
-        ] <DELIMITADOR>
+        ]*/ <DELIMITADOR>
 
     } catch (ParseException e) {
         tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
@@ -413,9 +425,8 @@ void gramaticaLeer() : {}
 {
     try {
         <LEER> <PARENIZQ>
-        (
-            <IDENTIFICADOR>
-        ) <PARENDER> <DELIMITADOR>
+           <IDENTIFICADOR>
+        <PARENDER> <DELIMITADOR>
     } catch (ParseException e) {
         tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     }
@@ -487,16 +498,17 @@ void gramaticaWhile() : {}
         }
 }
 
-void gramaticaAsignacion(): {Token t;}
+void gramaticaAsignacion(): {Token t; String t2;}
 {
     try{
 	        t = < IDENTIFICADOR >
 	        < IGUAL >
-	        operacionSimple(tablaSimbolos.getType(t.image))
+	        t2 = operacionSimple(tablaSimbolos.getType(t.image))
 	            {
 	                if(!tablaSimbolos.contains(t.image)){
                     tabla2.add("Error semántico: La variable " + t.image + " no ha sido declarada");
                 }
+                emit("=",t2, "", t.image);
 	        }
 	        <DELIMITADOR>
         } catch (ParseException e) {
@@ -504,28 +516,68 @@ void gramaticaAsignacion(): {Token t;}
         }
 }
 
-void operacionSimple(String type): {}
+String operacionSimple(String type): {Token t1 ;String t , t2;}
 {
     try{
-            (  valor2(type) | operacionParentesis(type))
-            ( operadorAritmetico() ( valor2(type) | operacionParentesis(type)) )*
+            t = termino(type)
+            ( t1 = operadorAritmeticoMasMenos() t2 = termino(type)
+            {
+            String temp = newTemp();
+            emit(t1.image,t,t2,temp);
+            t = temp;
+            }
+            )*
+            {
+            return t;
+            }
         } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
 }
 
-void operacionParentesis(String type): { }
+String operacionParentesis(String type): {String t;}
 {
     try{
-	        < PARENIZQ > operacionSimple(type) < PARENDER >
+	        < PARENIZQ > t = operacionSimple(type) < PARENDER >
+	        {
+	        return t;
+	        }
         } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
 }
 
-void operadorAritmetico(): {}
+Token operadorAritmeticoMasMenos(): {Token t;}
 {
-	< MAS > | < MENOS > | < MULT > | < DIV > | < RES >
+	(t = < MAS > | t = < MENOS >)
+	{return t;}
+}
+
+Token operadorAritmeticoMulDiv(): {Token t;}
+{
+	(t = < MULT> | t = < DIV> | t = <RES>)
+	{return t;}
+}
+
+String termino(String type) : {String t1, t2; Token op;}
+{
+    t1 = Factor(type)
+    (
+        op = operadorAritmeticoMulDiv() t2 = Factor(type) {
+            String temp = newTemp();
+            emit(op.image, t1, t2, temp);
+            t1 = temp;
+        }
+    )*
+    { return t1; }
+}
+
+String Factor(String type) : {Token t; String t1;}
+{
+  t = valor2(type) {return t.image;}
+  | t1 = operacionParentesis(type) {return t1;}
+
+
 }
 
 void gramaticaOperadorLogico(): {}
@@ -659,6 +711,7 @@ void SentenciasProcedimientos() : {Token t;}
         {tablaSimbolos.enterScope();}
         <PROC> PalabrasReservadas() <VOID> t = <IDENTIFICADOR>
         {
+            emit("Proc", t.image, "", "void");
             if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
             else tablaSimbolos.addSymbolV(t.image);
         }
@@ -680,6 +733,7 @@ void SentenciasFunciones() : {Token t, t1;}
         {tablaSimbolos.enterScope();}
         <FUNC> PalabrasReservadas() t1 = tipoDato() t = <IDENTIFICADOR>
         {
+            emit("func", t.image, "", t1.image);
             if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
             else tablaSimbolos.addSymbol(t.image, t1.image);
         }
@@ -690,9 +744,13 @@ void SentenciasFunciones() : {Token t, t1;}
         (
            Codigo()
         )*
-        <RETURN> valor2(t1.image) <DELIMITADOR>
+        <RETURN> t = valor2(t1.image) <DELIMITADOR>
         <LLAVEDER>
-        {tablaSimbolos.exitScope();}
+        {
+            String temp = newTemp();
+            emit("return", t.image, "", temp);
+        tablaSimbolos.exitScope();
+        }
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
@@ -710,16 +768,22 @@ void returnStatement(Token t) : {}
 void parametros() : {Token t, t1;}
 {
     try{
-        t1 = tipoDato() t = <IDENTIFICADOR>
-        {
-            if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
-            else tablaSimbolos.addSymbol(t.image, t1.image);
-        }
-        ( <COMA> t1 = tipoDato() t = <IDENTIFICADOR>
-        {
-            if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
-            else tablaSimbolos.addSymbol(t.image, t1.image);
-        }
+        t =  <IDENTIFICADOR>
+             t1 = tipoDato()
+             {
+                emit("param", t.image, "", t1.image);
+
+               if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+               else tablaSimbolos.addSymbol(t.image, t1.image);
+             }
+        ( <COMA> t =  <IDENTIFICADOR>
+                      t1 = tipoDato()
+                      {
+                        emit("param", t.image, "", t1.image);
+
+                        if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+                        else tablaSimbolos.addSymbol(t.image, t1.image);
+                      }
         )*
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
