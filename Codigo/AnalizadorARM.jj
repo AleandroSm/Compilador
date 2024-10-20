@@ -21,12 +21,16 @@ public class AnalizadorARM {
     static ArrayList<String> intermediateCode = new ArrayList<String>();
 
     static int tempCount = 0;
+    static int labelCount = 0;
     //Generamos una tabla de simbolos
     private SymbolTable tablaSimbolos = new SymbolTable();
 
     //Crea una nueva variable temporal
     static String newTemp() {
             return "t" + tempCount++;
+    }
+    static String newLabel() {
+            return "L" + labelCount++;
     }
 
     //Guarda las variaables temporales con su respectiva operacion en el Array
@@ -432,15 +436,27 @@ void gramaticaLeer() : {}
     }
 }
 
-void gramaticaSi() : {}
+void gramaticaSi() : {String labelElse, labelEnd;}
 {
     try {
-        {tablaSimbolos.enterScope();}
+        {
+            tablaSimbolos.enterScope();
+            labelElse = newLabel();
+            labelEnd = newLabel();
+        }
             <SI> <PARENIZQ> 
-            (condicion())+
-            <PARENDER> <LLAVEIZQ> (Codigo())+ <LLAVEDER>
+            condicion(labelElse)
+            {
+                emit("goto", "t" + String.valueOf(tempCount-1), "", labelEnd);
+            }
+            <PARENDER> <LLAVEIZQ> (Codigo())+ 
+            
+            <LLAVEDER>
             ( gramaticaSiNo() )*
-            {tablaSimbolos.exitScope();}
+            {
+                emit("label", "", "", labelEnd);
+                tablaSimbolos.exitScope();
+            }
         } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
@@ -457,10 +473,18 @@ void gramaticaSiNo() : {}
         }
 }
 
-void condicion() : {}
+void condicion(String labelElse) : {Token t1,t2,op;}
 {
     try {
-    valor() OperadoresComparadores() valor() (condicionLogicos())*
+     t1 = valor2(labelElse) 
+     op= OperadoresComparadores() 
+     t2 = valor2(labelElse)
+     {
+        String temp = newTemp();
+        emit(op.image, t1.image, t2.image, temp);
+        // emit("if", labelElse, "", temp);
+     } 
+     (condicionLogicos())*
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
@@ -480,19 +504,37 @@ void OperadoresLogicos() : {}
      <AND> | <OR> | <NOT>
 }
 
-void OperadoresComparadores() : {}
+Token OperadoresComparadores() : {Token t;}
 {
-    <IGUALDAD> | <DESIGUALDAD> | <MAYOR> | <MENOR> | <MAYORIGUAL> | <MENORIGUAL>
+    (t  = <IGUALDAD> 
+    |t =  <DESIGUALDAD> 
+    |t =  <MAYOR> 
+    |t =  <MENOR> 
+    |t =  <MAYORIGUAL> 
+    |t =  <MENORIGUAL>)
+    {return t;}
 }
 
-void gramaticaWhile() : {}
+void gramaticaWhile() : {String labelStart, labelEnd;}
 {
     try{
-        {tablaSimbolos.enterScope();}
+        {
+            labelStart = newLabel();
+            labelEnd = newLabel();
+            tablaSimbolos.enterScope();
+            emit("label", "", "", labelStart);
+        }
         <WHILE> <PARENIZQ> 
-        condicion() 
+        condicion("") 
+        {
+            emit("goto", "t" + String.valueOf(tempCount-1), "", labelEnd);
+        }
         <PARENDER> <LLAVEIZQ> (Codigo())+ <LLAVEDER> 
-        {tablaSimbolos.exitScope();}
+        {
+            tablaSimbolos.exitScope();
+            emit("goto", "", "", labelStart);
+            emit("label", "", "", labelEnd);
+        }
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
         }
