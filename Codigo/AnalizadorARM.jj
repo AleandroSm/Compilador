@@ -11,6 +11,9 @@ import java.io.*;
 import java.util.ArrayList;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class AnalizadorARM {
     //Array que guarda los Errores encontrados en el codigo que se ejecuta
@@ -19,6 +22,8 @@ public class AnalizadorARM {
     static ArrayList<String> tabla2 = new ArrayList<String>();
     //Array que guarda los valores para convertirlos a cuadruplos
     static ArrayList<String> intermediateCode = new ArrayList<String>();
+
+    static Map<String, String> subExpressions = new LinkedHashMap<String,String>();
 
     static int tempCount = 0;
     static int labelCount = 0;
@@ -42,6 +47,10 @@ public class AnalizadorARM {
         }
     }
 
+    static void emitSubExpression(String key, String value){
+        subExpressions.put(key, value);
+    }
+
     public static void main(String[] args) {
         try {
             // Guarda el primer archivo mandado
@@ -58,11 +67,22 @@ public class AnalizadorARM {
         try{
             FileWriter archivo = new FileWriter("Cuadruplos.txt");
             PrintWriter escritor = new PrintWriter(archivo);
-
+            FileWriter archivo2 = new FileWriter("SubExpresiones.txt");
+            PrintWriter escritor2 = new PrintWriter(archivo2);
+            String lastTemp = "t0";
         for (String code : intermediateCode) {
             escritor.println(code);
-        }
-        escritor.close();
+            //String [] parts = code.split(" -> ");
+            //if(subExpressions.containsKey(parts[1])) System.out.println("Ya existe la subexpresion");
+            //else subExpressions.put(parts[1], parts[0]);
+
+            }
+            escritor.close();
+
+            for (Map.Entry<String, String> entry : subExpressions.entrySet()) {
+                escritor2.println(entry.getValue() + " -> " + entry.getKey());
+            }
+            escritor2.close();
 
         }catch(IOException e){
 
@@ -347,7 +367,7 @@ void declararVariable() : {Token t,t1, t3;}
         t1 = tipoDato()
         {
             emit("", t.image, "", t1.image);
-
+            //emitSubExpression("",t.image,"",t1.image);
             if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
             else tablaSimbolos.addSymbol(t.image, t1.image);
         }
@@ -540,7 +560,7 @@ void gramaticaWhile() : {String labelStart, labelEnd;}
         }
 }
 
-void gramaticaAsignacion(): {Token t; String t2;}
+void gramaticaAsignacion(): {Token t; String t2, expresionKey;}
 {
     try{
 	        t = < IDENTIFICADOR >
@@ -551,6 +571,7 @@ void gramaticaAsignacion(): {Token t; String t2;}
                     tabla2.add("Error semántico: La variable " + t.image + " no ha sido declarada");
                 }
                 emit("=",t2, "", t.image);
+                emitSubExpression("="+t2,t.image);
 	        }
 	        <DELIMITADOR>
         } catch (ParseException e) {
@@ -558,14 +579,23 @@ void gramaticaAsignacion(): {Token t; String t2;}
         }
 }
 
-String operacionSimple(String type): {Token t1 ;String t , t2;}
+String operacionSimple(String type): {Token t1 ;String t , t2, temp;}
 {
     try{
             t = termino(type)
             ( t1 = operadorAritmeticoMasMenos() t2 = termino(type)
             {
-            String temp = newTemp();
-            emit(t1.image,t,t2,temp);
+            String expresionKey = t + " " + t1.image + " " + t2;
+            if(subExpressions.containsKey(expresionKey)) {
+                temp = subExpressions.get(expresionKey);
+            }
+            else {
+                temp = newTemp();
+                emit(t1.image,t,t2,temp);
+                subExpressions.put(expresionKey, temp);
+            }
+            //emit(t1.image,t,t2,temp);
+
             t = temp;
             }
             )*
@@ -601,13 +631,22 @@ Token operadorAritmeticoMulDiv(): {Token t;}
 	{return t;}
 }
 
-String termino(String type) : {String t1, t2; Token op;}
+String termino(String type) : {String t1, t2, temp; Token op;}
 {
     t1 = Factor(type)
     (
         op = operadorAritmeticoMulDiv() t2 = Factor(type) {
-            String temp = newTemp();
-            emit(op.image, t1, t2, temp);
+            String expresionKey = t1 + " " + op.image + " " + t2;
+            
+            if(subExpressions.containsKey(expresionKey)) {
+                temp = subExpressions.get(expresionKey);
+            }
+            else {
+                temp = newTemp();
+                emit(op.image, t1, t2, temp);
+                subExpressions.put(expresionKey, temp);
+            }
+            //emit(op.image, t1, t2, temp);
             t1 = temp;
         }
     )*

@@ -1,7 +1,7 @@
 Inicio main
 {
   var num ent;
-  while(num > 0){
-    num = 10;
-  }
+  var num2 ent;
+  num = 5 mas 2 mult 3;
+  num2 = 10 mas 2 mult 3;
 }Fin

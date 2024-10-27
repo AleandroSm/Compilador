@@ -1,7 +1,7 @@
 ent ->  num
-L0 -> label 
-t0 -> num > 0
-L1 -> goto t0
-num -> = 10
-L0 -> goto 
-L1 -> label 
+ent ->  num2
+t0 -> 2 mult 3
+t1 -> 5 mas t0
+num -> = t1
+t2 -> 10 mas t0
+num2 -> = t2

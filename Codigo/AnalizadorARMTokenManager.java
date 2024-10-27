@@ -3,6 +3,9 @@ import java.io.*;
 import java.util.ArrayList;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /** Token Manager. */
 public class AnalizadorARMTokenManager implements AnalizadorARMConstants

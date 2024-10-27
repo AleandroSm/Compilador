@@ -1,0 +1,5 @@
+t0 -> 2 mult 3
+t1 -> 5 mas t0
+num -> =t1
+t2 -> 10 mas t0
+num2 -> =t2

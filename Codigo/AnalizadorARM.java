@@ -3,6 +3,9 @@ import java.io.*;
 import java.util.ArrayList;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class AnalizadorARM implements AnalizadorARMConstants {
     //Array que guarda los Errores encontrados en el codigo que se ejecuta
@@ -11,6 +14,8 @@ public class AnalizadorARM implements AnalizadorARMConstants {
     static ArrayList<String> tabla2 = new ArrayList<String>();
     //Array que guarda los valores para convertirlos a cuadruplos
     static ArrayList<String> intermediateCode = new ArrayList<String>();
+
+    static Map<String, String> subExpressions = new LinkedHashMap<String,String>();
 
     static int tempCount = 0;
     static int labelCount = 0;
@@ -34,6 +39,10 @@ public class AnalizadorARM implements AnalizadorARMConstants {
         }
     }
 
+    static void emitSubExpression(String key, String value){
+        subExpressions.put(key, value);
+    }
+
     public static void main(String[] args) {
         try {
             // Guarda el primer archivo mandado
@@ -50,11 +59,22 @@ public class AnalizadorARM implements AnalizadorARMConstants {
         try{
             FileWriter archivo = new FileWriter("Cuadruplos.txt");
             PrintWriter escritor = new PrintWriter(archivo);
-
+            FileWriter archivo2 = new FileWriter("SubExpresiones.txt");
+            PrintWriter escritor2 = new PrintWriter(archivo2);
+            String lastTemp = "t0";
         for (String code : intermediateCode) {
             escritor.println(code);
-        }
-        escritor.close();
+            //String [] parts = code.split(" -> ");
+            //if(subExpressions.containsKey(parts[1])) System.out.println("Ya existe la subexpresion");
+            //else subExpressions.put(parts[1], parts[0]);
+
+            }
+            escritor.close();
+
+            for (Map.Entry<String, String> entry : subExpressions.entrySet()) {
+                escritor2.println(entry.getValue() + " -> " + entry.getKey());
+            }
+            escritor2.close();
 
         }catch(IOException e){
 
@@ -246,7 +266,7 @@ public class AnalizadorARM implements AnalizadorARMConstants {
       t = jj_consume_token(IDENTIFICADOR);
       t1 = tipoDato();
             emit("", t.image, "", t1.image);
-
+            //emitSubExpression("",t.image,"",t1.image);
             if(tablaSimbolos.contains(t.image)) tabla2.add("Error sem\u00e1ntico: La variable " + t.image + " ya ha sido declarada");
             else tablaSimbolos.addSymbol(t.image, t1.image);
       jj_consume_token(DELIMITADOR);
@@ -644,7 +664,7 @@ public class AnalizadorARM implements AnalizadorARMConstants {
   }
 
   final public void gramaticaAsignacion() throws ParseException {
-                             Token t; String t2;
+                             Token t; String t2, expresionKey;
     try {
       t = jj_consume_token(IDENTIFICADOR);
       jj_consume_token(IGUAL);
@@ -653,6 +673,7 @@ public class AnalizadorARM implements AnalizadorARMConstants {
                     tabla2.add("Error sem\u00e1ntico: La variable " + t.image + " no ha sido declarada");
                 }
                 emit("=",t2, "", t.image);
+                emitSubExpression("="+t2,t.image);
       jj_consume_token(DELIMITADOR);
     } catch (ParseException e) {
             tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
@@ -661,7 +682,7 @@ public class AnalizadorARM implements AnalizadorARMConstants {
   }
 
   final public String operacionSimple(String type) throws ParseException {
-                                      Token t1 ;String t , t2;
+                                      Token t1 ;String t , t2, temp;
     try {
       t = termino(type);
       label_9:
@@ -677,8 +698,17 @@ public class AnalizadorARM implements AnalizadorARMConstants {
         }
         t1 = operadorAritmeticoMasMenos();
         t2 = termino(type);
-            String temp = newTemp();
-            emit(t1.image,t,t2,temp);
+            String expresionKey = t + " " + t1.image + " " + t2;
+            if(subExpressions.containsKey(expresionKey)) {
+                temp = subExpressions.get(expresionKey);
+            }
+            else {
+                temp = newTemp();
+                emit(t1.image,t,t2,temp);
+                subExpressions.put(expresionKey, temp);
+            }
+            //emit(t1.image,t,t2,temp);
+
             t = temp;
       }
             {if (true) return t;}
@@ -743,7 +773,7 @@ public class AnalizadorARM implements AnalizadorARMConstants {
   }
 
   final public String termino(String type) throws ParseException {
-                               String t1, t2; Token op;
+                               String t1, t2, temp; Token op;
     t1 = Factor(type);
     label_10:
     while (true) {
@@ -759,8 +789,17 @@ public class AnalizadorARM implements AnalizadorARMConstants {
       }
       op = operadorAritmeticoMulDiv();
       t2 = Factor(type);
-            String temp = newTemp();
-            emit(op.image, t1, t2, temp);
+            String expresionKey = t1 + " " + op.image + " " + t2;
+
+            if(subExpressions.containsKey(expresionKey)) {
+                temp = subExpressions.get(expresionKey);
+            }
+            else {
+                temp = newTemp();
+                emit(op.image, t1, t2, temp);
+                subExpressions.put(expresionKey, temp);
+            }
+            //emit(op.image, t1, t2, temp);
             t1 = temp;
     }
       {if (true) return t1;}
