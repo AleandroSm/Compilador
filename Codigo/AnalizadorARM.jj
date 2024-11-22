@@ -320,7 +320,7 @@ void Codigo() : {}
         //| inicializarArregloEntero()
         //| inicializarArregloCadena()
         //| SentenciasProcedimientos()
-        //| SentenciasFunciones()
+        | SentenciasFunciones()
 }
 
 void declararVariable() : {Token t,t1, t3;}
@@ -730,3 +730,115 @@ Token operadorIncDec(): {Token t;}
         return t;
     }
 }
+
+
+void SentenciasFunciones() : {Token t, t1; String count = "";}
+{
+    try{
+        <FUNC> (t1 = tipoDato() t = <IDENTIFICADOR>
+        {
+            if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+            else tablaSimbolos.addSymbol(t.image, t1.image);
+            translator.translateFunctionStart(translator.translateType(t1.image), t.image);
+        }
+        <PARENIZQ>
+        [count = parametros()]
+        <PARENDER>
+        <LLAVEIZQ>
+        {tablaSimbolos.enterScope();}
+        (
+           Codigo()
+        )*
+        <RETURN> t1 = valor2(t1.image) <DELIMITADOR>
+        {
+            translator.translateReturn(t1.image);
+        }
+        <LLAVEDER> <DELIMITADOR>
+        {
+            translator.generateKeyClose();
+            if(count != ""){
+            tablaParametros.addSymbol(t.image, count);
+            }else{
+            paraCount1 = 0;
+            }
+        }
+        | t1 = <VOID> t = <IDENTIFICADOR>
+            {
+                if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+                else tablaSimbolos.addSymbol(t.image, t1.image);
+                translator.translateFunctionStart("void", t.image);
+            }
+            <PARENIZQ>
+            [count = parametros()]
+            <PARENDER>
+            <LLAVEIZQ>
+            {tablaSimbolos.enterScope();}
+            (
+            Codigo()
+            )*
+            <LLAVEDER> <DELIMITADOR>
+        {
+            translator.generateKeyClose();
+            if(count != ""){
+            tablaParametros.addSymbol(t.image, count);
+            }else{
+            paraCount1 = 0;
+            }
+        }
+        )
+        {tablaSimbolos.exitScope();}
+    } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+//Parametro a agregar en funciones
+String parametros() : {Token t, t1;}
+{
+    try{
+        t =  <IDENTIFICADOR>
+             t1 = tipoDato()
+             {
+               if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+               else tablaSimbolos.addSymbol(t.image, t1.image);
+               translator.translateParameter(translator.translateType(t1.image), t.image);
+             }
+        ( <COMA> t =  <IDENTIFICADOR>
+                      t1 = tipoDato()
+                      {
+                        if(tablaSimbolos.contains(t.image)) tabla2.add("Error semántico: La variable " + t.image + " ya ha sido declarada");
+                        else tablaSimbolos.addSymbol(t.image, t1.image);
+                        translator.translateParameter(translator.translateType(t1.image), t.image);
+                        paraCount1++;
+                      }
+        )* {return String.valueOf(paraCount1);
+        paraCount1 = 1;}
+    } catch (ParseException e) {
+            tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+        }
+}
+
+//Metodo para llamar a una funcion (Falta semantico)
+void llamarFuncion() : {Token t;}
+{
+    try{
+    <FUNC> t = <IDENTIFICADOR>
+	{
+        if(!tablaSimbolos.contains(t.image)){
+        tabla2.add("Error semántico: La variable " + t.image + " no ha sido declarada");
+        }
+    }
+    <PARENIZQ> valor() (<COMA> valor() {paraCount2++;})*  <PARENDER> {
+    if(paraCount1 != 0){
+    if(paraCount2 != Integer.parseInt(tablaParametros.getType(t.image))){
+            tabla2.add("Error semántico: Cantidad de parametros no cuadra");
+            paraCount2 = 1;
+        }
+    paraCount1 = 1;
+    }
+    }
+    } catch (ParseException e) {
+        tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+    }
+}
+

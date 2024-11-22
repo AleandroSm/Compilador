@@ -1,11 +1,17 @@
+import java.util.ArrayList;
+import java.util.List;
 
 public class CppTranslator {
     private StringBuilder code;
     private int indentLevel;
+     private List<String> parameters;
+    private boolean isFirstParameter;
 
     public CppTranslator() {
         this.code = new StringBuilder();
         this.indentLevel = 0;
+        this.parameters = new ArrayList<>();
+        this.isFirstParameter = true;
     }
 
     // Añade indentación según el nivel actual
@@ -49,19 +55,6 @@ public class CppTranslator {
     public void translateVariableAssignment(String name, String valor){
         indent();
         code.append(String.format("%s = %s;\n", name,valor));
-    }
-
-    private void translateExpression(String line) {
-        indent();
-        // Reemplaza operadores de tu lenguaje por operadores C++
-        String cppLine = line
-                .replace("mas", "+")
-                .replace("menos", "-")
-                .replace("mult", "*")
-                .replace("div", "/")
-                .replace("res", "%");
-        
-        code.append(cppLine + ";\n");
     }
 
    
@@ -116,6 +109,27 @@ public class CppTranslator {
         code.append(String.format("for (%s %s %s) {\n",
                 init, condition, increment));
         indentLevel++;
+    }
+
+
+    public void translateFunctionStart(String returnType, String name) {
+        indent();
+        code.append(returnType).append(" ").append(name).append("(");
+        isFirstParameter = true;
+        parameters.clear();
+    }
+
+    public void translateParameter(String type, String name) {
+        if (!isFirstParameter) {
+            code.append(", ");
+        }
+        code.append(type).append(" ").append(name);
+        isFirstParameter = false;
+    }
+
+    public void translateReturn(String value) {
+        indent();
+        code.append("return ").append(value).append(";\n");
     }
 
     // Genera el encabezado del archivo C++
