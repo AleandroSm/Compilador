@@ -3,7 +3,7 @@ options {
     STATIC = false;
     BUILD_PARSER = true;
     ERROR_REPORTING = true;
-    LOOKAHEAD = 1;
+    LOOKAHEAD = 2;
 }
 
 PARSER_BEGIN(AnalizadorARM)
@@ -24,7 +24,8 @@ public class AnalizadorARM {
     //Array que guarda los Errores semanticos encontrados en el codigo
     static ArrayList<String> tabla2 = new ArrayList<String>();
 
-    static CppTranslator translator = new CppTranslator();
+    //static CppTranslator translator = new CppTranslator();
+    static CppTranslator translator;
   
     //Generamos una tabla de simbolos
     private SymbolTable tablaSimbolos = new SymbolTable();
@@ -37,8 +38,9 @@ public class AnalizadorARM {
             FileReader lector = new FileReader(nombreArchivo);
             //Crea una instancia de AnalizadorARM, pasando el lector del archivo como argumento.
             AnalizadorARM parser = new AnalizadorARM(lector);
+            translator = new CppTranslator();
 
-            translator.generateHeader();
+            //translator.generateHeader();
 
             //Llama al método parse para comenzar el análisis léxico y sintáctico del archivo.
             parser.parse(nombreArchivo);
@@ -315,12 +317,11 @@ void Codigo() : {}
         | gramaticaSi()
         | gramaticaWhile()
         | gramaticaAsignacion()
-        | gramaticaOperadorLogico()
+        | llamarFuncion()
         | gramaticaFor()
-        //| inicializarArregloEntero()
-        //| inicializarArregloCadena()
-        //| SentenciasProcedimientos()
-        | SentenciasFunciones()
+        | gramaticaOperadorLogico()
+        |SentenciasFunciones()
+        //| asignacionConFuncion("")
 }
 
 void declararVariable() : {Token t,t1, t3;}
@@ -552,6 +553,7 @@ void gramaticaAsignacion(): {Token t = null; String exp = "";}
                     }
                     translator.translateVariableAssignment(t.image, exp);   
 	            }
+             | asignacionConFuncion(t.image)
 	        )
 	        <DELIMITADOR>
         } catch (ParseException e) {
@@ -745,7 +747,10 @@ void SentenciasFunciones() : {Token t, t1; String count = "";}
         [count = parametros()]
         <PARENDER>
         <LLAVEIZQ>
-        {tablaSimbolos.enterScope();}
+        {
+            translator.generateKeyClose();
+            tablaSimbolos.enterScope();
+        }
         (
            Codigo()
         )*
@@ -755,7 +760,7 @@ void SentenciasFunciones() : {Token t, t1; String count = "";}
         }
         <LLAVEDER> <DELIMITADOR>
         {
-            translator.generateKeyClose();
+            translator.closeFunctionBlock();
             if(count != ""){
             tablaParametros.addSymbol(t.image, count);
             }else{
@@ -772,13 +777,16 @@ void SentenciasFunciones() : {Token t, t1; String count = "";}
             [count = parametros()]
             <PARENDER>
             <LLAVEIZQ>
-            {tablaSimbolos.enterScope();}
+            {
+                translator.generateKeyClose();
+                tablaSimbolos.enterScope();
+            }
             (
             Codigo()
             )*
             <LLAVEDER> <DELIMITADOR>
         {
-            translator.generateKeyClose();
+            translator.closeFunctionBlock();
             if(count != ""){
             tablaParametros.addSymbol(t.image, count);
             }else{
@@ -818,8 +826,7 @@ String parametros() : {Token t, t1;}
         }
 }
 
-//Metodo para llamar a una funcion (Falta semantico)
-void llamarFuncion() : {Token t;}
+void llamarFuncion() : {Token t, arg;}
 {
     try{
     <FUNC> t = <IDENTIFICADOR>
@@ -827,8 +834,11 @@ void llamarFuncion() : {Token t;}
         if(!tablaSimbolos.contains(t.image)){
         tabla2.add("Error semántico: La variable " + t.image + " no ha sido declarada");
         }
+        translator.translateFunctionCallStart(t.image);
     }
-    <PARENIZQ> valor() (<COMA> valor() {paraCount2++;})*  <PARENDER> {
+    <PARENIZQ> arg = valor2("")  {translator.translateFunctionArgument(arg.image);}
+    (<COMA> arg = valor2("") {paraCount2++;})*  <PARENDER> {
+    translator.translateFunctionArgument(arg.image);
     if(paraCount1 != 0){
     if(paraCount2 != Integer.parseInt(tablaParametros.getType(t.image))){
             tabla2.add("Error semántico: Cantidad de parametros no cuadra");
@@ -836,9 +846,37 @@ void llamarFuncion() : {Token t;}
         }
     paraCount1 = 1;
     }
+    translator.translateFunctionCallEnd();
     }
+    < DELIMITADOR>
     } catch (ParseException e) {
         tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
     }
 }
 
+void asignacionConFuncion(String variable) : {Token t, arg;}
+{
+    try{
+    <FUNC> t = <IDENTIFICADOR>
+	{
+        if(!tablaSimbolos.contains(t.image)){
+        tabla2.add("Error semántico: La variable " + t.image + " no ha sido declarada");
+        }
+        translator.translateFunctionCallWithAssignment(variable, t.image);
+    }
+    <PARENIZQ> arg = valor2("")  {translator.translateFunctionArgument(arg.image);}
+    (<COMA> arg = valor2("") {paraCount2++;})*  <PARENDER> {
+    translator.translateFunctionArgument(arg.image);
+    if(paraCount1 != 0){
+    if(paraCount2 != Integer.parseInt(tablaParametros.getType(t.image))){
+            tabla2.add("Error semántico: Cantidad de parametros no cuadra");
+            paraCount2 = 1;
+        }
+    paraCount1 = 1;
+    }
+    translator.translateFunctionCallEnd();
+    }
+    } catch (ParseException e) {
+        tabla.add(manejarErrorSintactico(e)); // Agregar error a la tabla
+    }
+}
