@@ -2,21 +2,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CppTranslator {
-    private StringBuilder code;
+    private StringBuilder mainCode;      
+    private StringBuilder functionCode;  
     private int indentLevel;
-     private List<String> parameters;
-    private boolean isFirstParameter;
+    private int functionLevel;
+    private List<String> parameters;
+    private StringBuilder currentFunctionCall;
 
     public CppTranslator() {
-        this.code = new StringBuilder();
+        this.mainCode = new StringBuilder();
+        this.functionCode = new StringBuilder();
         this.indentLevel = 0;
         this.parameters = new ArrayList<>();
-        this.isFirstParameter = true;
+        this.functionLevel = 0;
+        this.currentFunctionCall = new StringBuilder();
     }
 
     // Añade indentación según el nivel actual
-    private void indent() {
-        code.append("    ".repeat(indentLevel));
+    private void indent(StringBuilder sb) {
+        sb.append("    ".repeat(indentLevel));
     }
 
     // Traduce los tipos de datos
@@ -47,27 +51,49 @@ public class CppTranslator {
 
    
     public void translateVariableDeclaration(String type, String name) {
-        indent();
         String cppType = translateType(type);
-        code.append(String.format("%s %s;\n", cppType, name));
+        if (isInFunction() == true) {
+            indent(functionCode);
+            functionCode.append(String.format("%s %s;\n", cppType, name));
+        } else {
+            indent(mainCode);
+            mainCode.append(String.format("%s %s;\n", cppType, name));
+        }
     }
 
-    public void translateVariableAssignment(String name, String valor){
-        indent();
-        code.append(String.format("%s = %s;\n", name,valor));
+    public void translateVariableAssignment(String name, String value) {
+        if (isInFunction() == true) {
+            indent(functionCode);
+            functionCode.append(String.format("%s = %s;\n", name, value));
+            
+        } else {
+            indent(mainCode);
+            mainCode.append(String.format("%s = %s;\n", name, value));
+        }
     }
 
    
     public void translateIf(String condition) {
-        indent();
-        // Traduce los operadores en la condición
-        //String cppCondition = translateCondition(condition);
-        code.append(String.format("if (%s) {\n", condition));
+        if (isInFunction()) {
+            indent(functionCode);
+            functionCode.append(String.format("if (%s) {\n", condition));
+        } else {
+            indent(mainCode);
+            mainCode.append(String.format("if (%s) {\n", condition));
+        }
         indentLevel++;
     }
 
-    public void translateElse(){
-        code.append("else {\n");
+    public void translateElse() {
+        if(indentLevel > 0) indentLevel--;
+        if (isInFunction()) {
+            indent(functionCode);
+            functionCode.append("} else {\n");
+        } else {
+            indent(mainCode);
+            mainCode.append("} else {\n");
+        }
+        indentLevel++;
     }
 
     private String translateCondition(String condition) {
@@ -84,69 +110,187 @@ public class CppTranslator {
     }
 
 
-
-
     public void translateWrite(String content) {
-        indent();
-        code.append(String.format("cout << %s << endl;\n", content));
+        if (isInFunction()) {
+            indent(functionCode);
+            functionCode.append("cout << ").append(content).append(" << endl;\n");
+        } else {
+            indent(mainCode);
+            mainCode.append("cout << ").append(content).append(" << endl;\n");
+        }
     }
 
     public void translateRead(String variable) {
-        indent();
-        code.append(String.format("cin >> %s;\n", variable));
+        if (isInFunction()) {
+            indent(functionCode);
+            functionCode.append(String.format("cin >> %s;\n", variable));
+        } else {
+            indent(mainCode);
+            mainCode.append(String.format("cin >> %s;\n", variable));
+        }
+    }
+
+    public void translateAssignment(String variable, String expression) {
+        if (isInFunction()) {
+            indent(functionCode);
+            functionCode.append(variable).append(" = ").append(expression).append(";\n");
+        } else {
+            indent(mainCode);
+            mainCode.append(variable).append(" = ").append(expression).append(";\n");
+        }
     }
 
     public void translateWhile(String condition) {
-        indent();
-        code.append(String.format("while (%s) {\n", condition));
+        if (isInFunction()) {
+            indent(functionCode);
+            functionCode.append("while (").append(condition).append(") {\n");
+        } else {
+            indent(mainCode);
+            mainCode.append("while (").append(condition).append(") {\n");
+        }
         indentLevel++;
     }
+
 
     public void translateFor(String init, String condition, String increment) {
-        indent();
-       // String cppInit = translateType(init)
-        //String passed = increment.replace("inc ", "i++");
-        code.append(String.format("for (%s %s %s) {\n",
+        if (isInFunction()) {
+            indent(functionCode);
+            functionCode.append(String.format("for (%s; %s; %s) {\n", 
                 init, condition, increment));
+        } else {
+            indent(mainCode);
+            mainCode.append(String.format("for (%s; %s %s) {\n", 
+                init, condition, increment));
+        }
         indentLevel++;
     }
 
 
+    public void enterFunction() {
+        functionLevel++;
+    }
+
+    public void exitFunction() {
+        if (functionLevel > 0) {
+            functionLevel--;
+        }
+    }
+
+    private boolean isInFunction() {
+        return functionLevel > 0;
+    }
+
     public void translateFunctionStart(String returnType, String name) {
-        indent();
-        code.append(returnType).append(" ").append(name).append("(");
-        isFirstParameter = true;
+        enterFunction();
+        functionCode.append("\n");
+        indent(functionCode);
+        functionCode.append(returnType).append(" ").append(name).append("(");
         parameters.clear();
     }
 
     public void translateParameter(String type, String name) {
-        if (!isFirstParameter) {
-            code.append(", ");
+        if (!parameters.isEmpty()) {
+            functionCode.append(", ");
         }
-        code.append(type).append(" ").append(name);
-        isFirstParameter = false;
+        functionCode.append(type).append(" ").append(name);
+        parameters.add(name);
     }
 
     public void translateReturn(String value) {
-        indent();
-        code.append("return ").append(value).append(";\n");
+        indent(functionCode);
+        functionCode.append("return ").append(value).append(";\n");
     }
 
-    // Genera el encabezado del archivo C++
-    public void generateHeader() {
-        code.append("#include <iostream>\n");
-        code.append("using namespace std;\n\n");
-        code.append("int main() {\n");
+    public void closeFunctionBlock() {
+        if(indentLevel > 0) indentLevel--;
+        indent(functionCode);
+        functionCode.append("}\n\n");
+        exitFunction();
+        //isInFunction = false;
     }
 
+     // Para iniciar la llamada a función
+     public void translateFunctionCallStart(String functionName) {
+        currentFunctionCall = new StringBuilder();
+        if (isInFunction()) {
+            indent(functionCode);
+            functionCode.append(functionName).append("(");
+        } else {
+            indent(mainCode);
+            mainCode.append(functionName).append("(");
+        }
+    }
+
+    // Para añadir argumentos a la llamada
+    public void translateFunctionArgument(String arg) {
+        if (currentFunctionCall.length() > 0) {
+            currentFunctionCall.append(", ");
+        }
+        currentFunctionCall.append(arg);
+    }
+
+    // Para cerrar la llamada a función
+    public void translateFunctionCallEnd() {
+        if (isInFunction()) {
+            functionCode.append(currentFunctionCall.toString()).append(");\n");
+        } else {
+            mainCode.append(currentFunctionCall.toString()).append(");\n");
+        }
+        currentFunctionCall = new StringBuilder();
+    }
+
+    // Para asignar el resultado de una función
+    public void translateFunctionCallWithAssignment(String variable, String functionName) {
+        if (isInFunction()) {
+            indent(functionCode);
+            functionCode.append(variable).append(" = ").append(functionName).append("(");
+        } else {
+            indent(mainCode);
+            mainCode.append(variable).append(" = ").append(functionName).append("(");
+        }
+    }
+
+    public void translateMainCode(String code) {
+        if (!isInFunction()) {
+            indent(mainCode);
+            mainCode.append(code).append("\n");
+        } else {
+            indent(functionCode);
+            functionCode.append(code).append("\n");
+        }
+    }
+
+    
     public void generateKeyClose() {
-        code.append("}\n");
+        if (isInFunction()) {
+            functionCode.append(") {\n");
+            if(indentLevel > 0) indentLevel--;
+            indent(functionCode);
+            //functionCode.append("}\n");
+        } else {
+            indentLevel--;
+            indent(mainCode);
+            mainCode.append("}\n");
+        }
     }
 
-    // Obtiene el código C++ generado
     public String getCode() {
-        code.append("return 0;\n");
-        code.append("}\n");
-        return code.toString();
+        StringBuilder fullCode = new StringBuilder();
+        
+        // Añadir includes
+        fullCode.append("#include <iostream>\n");
+        fullCode.append("using namespace std;\n\n");
+        
+        // Añadir funciones
+        fullCode.append(functionCode.toString());
+        
+        // Añadir main
+        fullCode.append("\nint main() {\n");
+        indentLevel++;
+        fullCode.append(mainCode.toString());
+        fullCode.append("    return 0;\n");
+        fullCode.append("}\n");
+        
+        return fullCode.toString();
     }
 }
