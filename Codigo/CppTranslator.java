@@ -88,10 +88,10 @@ public class CppTranslator {
         if(indentLevel > 0) indentLevel--;
         if (isInFunction()) {
             indent(functionCode);
-            functionCode.append("} else {\n");
+            functionCode.append("else {\n");
         } else {
             indent(mainCode);
-            mainCode.append("} else {\n");
+            mainCode.append("else {\n");
         }
         indentLevel++;
     }
@@ -155,11 +155,11 @@ public class CppTranslator {
     public void translateFor(String init, String condition, String increment) {
         if (isInFunction()) {
             indent(functionCode);
-            functionCode.append(String.format("for (%s; %s; %s) {\n", 
+            functionCode.append(String.format("for (%s %s %s) {\n", 
                 init, condition, increment));
         } else {
             indent(mainCode);
-            mainCode.append(String.format("for (%s; %s %s) {\n", 
+            mainCode.append(String.format("for (%s %s %s) {\n", 
                 init, condition, increment));
         }
         indentLevel++;
@@ -279,6 +279,7 @@ public class CppTranslator {
         
         // Añadir includes
         fullCode.append("#include <iostream>\n");
+        fullCode.append("#include <locale>\n");
         fullCode.append("using namespace std;\n\n");
         
         // Añadir funciones
@@ -287,6 +288,7 @@ public class CppTranslator {
         // Añadir main
         fullCode.append("\nint main() {\n");
         indentLevel++;
+        fullCode.append("setlocale(LC_ALL, \"es_ES.UTF-8\");\n");
         fullCode.append(mainCode.toString());
         fullCode.append("    return 0;\n");
         fullCode.append("}\n");

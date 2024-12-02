@@ -280,10 +280,17 @@ TOKEN: // IDENTIFICADOR
     <IDENTIFICADOR: ["a"-"z", "A"-"Z"](["a"-"z", "A"-"Z", "0"-"9", "_"])*>
 }
 
-TOKEN: //Reconocimiento de valores
+// TOKEN: //Reconocimiento de valores
+// {
+//     <VCAD: "\""(["a"-"z"]|["A"-"Z"]|["0"-"9"]|[","]|["."]|[" "]|[":"]|["="])+"\"">
+// }
+TOKEN: // Reconocimiento de valores con Unicode
 {
-    <VCAD: "\""(["a"-"z"]|["A"-"Z"]|["0"-"9"]|[","]|["."]|[" "]|[":"]|["="])+"\"">
+    <VCAD: "\""(["a"-"z", "A"-"Z", "0"-"9", ",", ".", " ", ":", "=",
+    "á", "é", "í", "ó", "ú", "Á", "É", "Í", "Ó", "Ú",
+    "ñ", "Ñ", "ü", "Ü"])+"\"">
 }
+
 
 TOKEN: // Manejo de Errores
 {
@@ -384,10 +391,15 @@ Token valor2(String tipoEsperado) : {Token t;}
     }
 }
 
-void valor() : {}
+Token valor() : {Token t;}
 {
-    <ENTEROS> | <VCAD> | <NUMERODECIMAL> | <IDENTIFICADOR>
+    t = <ENTEROS> {return t;}| t = <VCAD> {return t;}| t = <NUMERODECIMAL> {return t;}| t = <IDENTIFICADOR> {return t;}
+
 }
+// void valor() : {}
+// {
+//     <ENTEROS> | <VCAD> | <NUMERODECIMAL> | <IDENTIFICADOR>
+// }
 
 void gramaticaEscribir() : {Token t = null, t1 = null; StringBuilder sb = new StringBuilder();}
 {
@@ -477,9 +489,9 @@ void gramaticaSiNo() : {}
 String condicion() : {Token t1,t2,op;}
 {
     try {
-     t1 = valor2("") 
+     t1 = valor() 
      op= OperadoresComparadores() 
-     t2 = valor2("")
+     t2 = valor2(tablaSimbolos.getType(t1.image))
      {
         if(t1.kind == IDENTIFICADOR && !tablaSimbolos.contains(t1.image)){
             tabla2.add("Error semántico: La variable " + t1.image + " no ha sido declarada");
